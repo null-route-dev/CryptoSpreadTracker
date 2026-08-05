@@ -2,7 +2,7 @@
 
 **CryptoSpreadTracker** is a real-time cryptocurrency arbitrage monitoring system designed to detect and visualize price differences (spreads) across multiple exchanges.
 
-> ⚠️ **Project Status:** Early development – this README outlines the vision and planned roadmap. Details are subject to change as the project evolves.
+> ✅ **Project Status:** MVP in progress – basic price fetching from Binance is implemented.
 
 ---
 
@@ -45,7 +45,7 @@ The project focuses on:
 
 ## 🗺️ Roadmap
 
-- [ ] **Phase 0:** Project setup, architecture design, and tech selection.
+- [x] **Phase 0:** Project setup, architecture design, and tech selection.
 - [ ] **Phase 1:** Implement basic price fetching from 2–3 exchanges.
 - [ ] **Phase 2:** Build spread calculation logic and a simple CLI output.
 - [ ] **Phase 3:** Develop a REST API and a minimal web dashboard.
@@ -57,9 +57,42 @@ The project focuses on:
 
 ## 🚀 Getting Started
 
-Since the project is not yet released, detailed setup instructions will be added once the first working version is available.
+### Prerequisites
 
-For now, feel free to watch the repository for updates.
+- Python 3.12+
+- [Poetry](https://python-poetry.org/)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/null-route-dev/CryptoSpreadTracker.git
+cd CryptoSpreadTracker
+
+# Install dependencies with Poetry
+poetry install
+
+# Or with pip (if you don't use Poetry)
+pip install -r requirements.txt
+```
+
+### Run the price fetcher
+
+```bash
+# With Poetry
+poetry run python src/main.py
+
+# Or directly
+python src/main.py
+```
+
+### Example Output
+
+```
+2026-08-05 13:40:30,057 - __main__ - INFO - CryptoSpreadTracker started
+
+BTC/USDT current price: 64230.57 USDT
+```
 
 ---
 
