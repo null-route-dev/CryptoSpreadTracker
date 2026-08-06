@@ -1,70 +1,100 @@
-import ccxt
+import asyncio
+import ccxt.async_support as ccxt
 import logging
+import os
+from dotenv import load_dotenv
+from colorama import init, Fore, Style
+from typing import Dict, List, Optional
 
+
+load_dotenv()
+
+init(autoreset=True)
+
+
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level, logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
-def fetch_price(exchange_id: str, symbol: str = "BTC/USDT") -> float | None:
+async def fetch_price(exchange_id: str, symbol: str) -> Optional[float]:
+    exchange = None
     try:
         exchange_class = getattr(ccxt, exchange_id)
-        exchange = exchange_class({
-            'enableRateLimit': True,
-        })
-
-        ticker = exchange.fetch_ticker(symbol)
+        exchange = exchange_class({'enableRateLimit': True})
+        ticker = await exchange.fetch_ticker(symbol)
         price = ticker['last']
-
         if price is None:
             logger.warning(f"Price for {symbol} on {exchange_id} not found")
             return None
-
         return float(price)
-
-    except ccxt.NetworkError as e:
-        logger.error(f"Network error on {exchange_id}: {e}")
-        return None
-    except ccxt.ExchangeError as e:
-        logger.error(f"Exchange error on {exchange_id}: {e}")
-        return None
     except Exception as e:
-        logger.error(f"Unexpected error on {exchange_id}: {e}")
+        logger.error(f"Error on {exchange_id} for {symbol}: {e}")
         return None
+    finally:
+        if exchange:
+            await exchange.close()
 
 
-def main():
+async def fetch_prices_for_exchange(exchange_id: str, symbols: List[str]) -> Dict[str, Optional[float]]:
+    results = {}
+    for symbol in symbols:
+        price = await fetch_price(exchange_id, symbol)
+        results[symbol] = price
+    return results
+
+
+async def main_async():
     logger.info("CryptoSpreadTracker started")
 
-    symbol = "BTC/USDT"
-    exchanges = ["binance", "bybit", "kraken"]
+    exchanges_str = os.getenv("EXCHANGES", "binance,bybit,kraken")
+    exchanges = [ex.strip() for ex in exchanges_str.split(",") if ex.strip()]
+    symbols_str = os.getenv("SYMBOLS", "BTC/USDT,ETH/USDT")
+    symbols = [sym.strip() for sym in symbols_str.split(",") if sym.strip()]
 
-    prices = {}
+    if not exchanges or not symbols:
+        logger.error("No exchanges or symbols configured. Check your .env file.")
+        return
 
-    for exchange_id in exchanges:
-        price = fetch_price(exchange_id, symbol)
-        if price is not None:
-            prices[exchange_id] = price
+    tasks = [fetch_prices_for_exchange(ex, symbols) for ex in exchanges]
+    results_list = await asyncio.gather(*tasks)
 
-    if not prices:
+    all_prices: Dict[str, Dict[str, float]] = {}
+    for exchange, result in zip(exchanges, results_list):
+        for symbol, price in result.items():
+            if price is not None:
+                all_prices.setdefault(symbol, {})[exchange] = price
+
+    if not all_prices:
         print("\n❌ No prices fetched from any exchange.\n")
         return
 
-    best_exchange = max(prices, key=prices.get)
-    best_price = prices[best_exchange]
+    for symbol, prices in all_prices.items():
+        if not prices:
+            print(f"\n❌ No prices for {symbol}\n")
+            continue
 
-    print(f"\nSpread Analysis for {symbol}:\n")
-    print(f"{'Exchange':<12} {'Price (USDT)':<15} {'Spread (%)':<10}")
-    print("-" * 40)
+        sorted_exchanges = sorted(prices.items(), key=lambda x: x[1], reverse=True)
+        best_exchange, best_price = sorted_exchanges[0]
 
-    for exchange, price in prices.items():
-        spread = ((price - best_price) / best_price) * 100
-        print(f"{exchange:<12} {price:<15.2f} {spread:>+8.2f}%")
+        print(f"\n📊 Spread Analysis for {symbol}:\n")
+        print(f"{'Exchange':<12} {'Price (USDT)':<15} {'Spread (%)':<10}")
+        print("-" * 40)
 
-    print("\n" + "-" * 40)
-    print(f"Best price: {best_exchange} at {best_price:.2f} USDT\n")
+        for exchange, price in sorted_exchanges:
+            spread = ((price - best_price) / best_price) * 100
+            color = Fore.GREEN if spread >= 0 else Fore.RED
+            print(f"{exchange:<12} {price:<15.2f} {color}{spread:>+8.2f}%{Style.RESET_ALL}")
+
+        print("-" * 40)
+        print(f"Best price: {best_exchange} at {best_price:.2f} USDT\n")
+
+
+def main():
+    asyncio.run(main_async())
 
 
 if __name__ == "__main__":

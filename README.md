@@ -46,7 +46,7 @@ The project focuses on:
 ## 🗺️ Roadmap
 
 - [x] **Phase 0:** Project setup, architecture design, and tech selection.
-- [ ] **Phase 1:** Implement basic price fetching from 2–3 exchanges.
+- [x] **Phase 1:** Implement basic price fetching from 2–3 exchanges.
 - [ ] **Phase 2:** Build spread calculation logic and a simple CLI output.
 - [ ] **Phase 3:** Develop a REST API and a minimal web dashboard.
 - [ ] **Phase 4:** Add historical data storage and basic charting.
