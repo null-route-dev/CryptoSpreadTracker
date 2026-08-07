@@ -47,7 +47,7 @@ The project focuses on:
 
 - [x] **Phase 0:** Project setup, architecture design, and tech selection.
 - [x] **Phase 1:** Implement basic price fetching from 2–3 exchanges.
-- [ ] **Phase 2:** Build spread calculation logic and a simple CLI output.
+- [x] **Phase 2:** Build spread calculation logic and a simple CLI output.
 - [ ] **Phase 3:** Develop a REST API and a minimal web dashboard.
 - [ ] **Phase 4:** Add historical data storage and basic charting.
 - [ ] **Phase 5:** Introduce alerts (Telegram/email) and advanced analytics.
@@ -89,9 +89,14 @@ python src/main.py
 ### Example Output
 
 ```
-2026-08-05 13:40:30,057 - __main__ - INFO - CryptoSpreadTracker started
+📊 Spread Analysis for BTC/USDT:
 
-BTC/USDT current price: 64230.57 USDT
+Exchange     Price (USDT)    Spread (%)
+----------------------------------------
+binance      64686.00           +0.00%
+okx          64683.60           -0.00%
+----------------------------------------
+Best price: binance at 64686.00 USDT
 ```
 
 ---
