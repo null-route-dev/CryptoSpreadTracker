@@ -21,7 +21,12 @@ async def run_once(config):
                 all_prices.setdefault(symbol, {})[exchange] = price
 
     analysis = analyze_spreads(all_prices)
-    print_spreads(analysis)
+    print_spreads(
+        analysis,
+        min_spread=config["min_spread"],
+        top=config["top"]
+    )
+
 
 async def run_loop(config):
     interval = config["interval"]

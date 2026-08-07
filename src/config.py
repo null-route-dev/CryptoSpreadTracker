@@ -7,11 +7,15 @@ def get_config(args):
     exchanges = args.exchanges or os.getenv("EXCHANGES", "binance,bybit,kraken")
     symbols = args.symbols or os.getenv("SYMBOLS", "BTC/USDT,ETH/USDT")
     interval = args.interval if args.interval is not None else 0.0
+    min_spread = args.min_spread if args.min_spread is not None else 0.0
+    top = args.top
     log_level = args.log_level or os.getenv("LOG_LEVEL", "INFO")
 
     return {
         "exchanges": [ex.strip() for ex in exchanges.split(",") if ex.strip()],
         "symbols": [sym.strip() for sym in symbols.split(",") if sym.strip()],
         "interval": float(interval),
+        "min_spread": float(min_spread),
+        "top": top,
         "log_level": log_level.upper(),
     }

@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import sys
 from src.cli import run
 
 def parse_args():
@@ -20,6 +21,18 @@ def parse_args():
         help="Update interval in seconds (omit or 0 for single run)"
     )
     parser.add_argument(
+        "--min-spread",
+        type=float,
+        default=0.0,
+        help="Minimum absolute spread percentage to display (default: 0.0)"
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=None,
+        help="Show only the top N opportunities by absolute spread (default: all)"
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -27,9 +40,15 @@ def parse_args():
     )
     return parser.parse_args()
 
+
 def main():
     args = parse_args()
-    asyncio.run(run(args))
+    try:
+        asyncio.run(run(args))
+    except KeyboardInterrupt:
+        print("\nShutdown requested. Exiting gracefully.")
+        sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
