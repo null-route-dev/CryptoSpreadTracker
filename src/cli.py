@@ -1,41 +1,21 @@
 import asyncio
 import logging
 from .config import get_config
-from .fetcher import fetch_prices_for_exchange
+from .fetcher import PriceFetcherManager
 from .analyzer import analyze_spreads
 from .display import print_spreads
 
 logger = logging.getLogger(__name__)
 
-async def run_once(config):
-    exchanges = config["exchanges"]
-    symbols = config["symbols"]
-
-    tasks = [fetch_prices_for_exchange(ex, symbols) for ex in exchanges]
-    results_list = await asyncio.gather(*tasks)
-
-    all_prices = {}
-    for exchange, result in zip(exchanges, results_list):
-        for symbol, price in result.items():
+async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float, top: int):
+    all_prices = manager.get_all_prices()
+    prices_by_symbol = {}
+    for ex_id, ex_prices in all_prices.items():
+        for sym, price in ex_prices.items():
             if price is not None:
-                all_prices.setdefault(symbol, {})[exchange] = price
-
-    analysis = analyze_spreads(all_prices)
-    print_spreads(
-        analysis,
-        min_spread=config["min_spread"],
-        top=config["top"]
-    )
-
-
-async def run_loop(config):
-    interval = config["interval"]
-    while True:
-        await run_once(config)
-        if interval > 0:
-            await asyncio.sleep(interval)
-        else:
-            break
+                prices_by_symbol.setdefault(sym, {})[ex_id] = price
+    analysis = analyze_spreads(prices_by_symbol)
+    print_spreads(analysis, min_spread, top)
 
 async def run(args):
     config = get_config(args)
@@ -45,7 +25,16 @@ async def run(args):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    if config["interval"] > 0:
-        await run_loop(config)
-    else:
-        await run_once(config)
+    manager = PriceFetcherManager(config["exchanges"], config["symbols"])
+    await manager.start()
+
+    try:
+        if config["interval"] > 0:
+            while True:
+                await run_once_with_manager(manager, config["min_spread"], config["top"])
+                await asyncio.sleep(config["interval"])
+        else:
+            await asyncio.sleep(1.5)
+            await run_once_with_manager(manager, config["min_spread"], config["top"])
+    finally:
+        await manager.stop()

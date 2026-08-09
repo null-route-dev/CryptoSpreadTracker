@@ -8,12 +8,12 @@ import websockets
 
 
 class WebSocketPriceFetcher(abc.ABC):
-
     def __init__(self, symbols: List[str]):
         self.symbols = symbols
         self._prices: Dict[str, Optional[float]] = {sym: None for sym in symbols}
         self._websocket = None
         self._task = None
+        self._stop = False
         self._logger = logging.getLogger(self.__class__.__name__)
 
     @abc.abstractmethod
@@ -29,11 +29,26 @@ class WebSocketPriceFetcher(abc.ABC):
         pass
 
     async def connect(self):
-        url = self.get_ws_url()
-        self._websocket = await websockets.connect(url)
-        self._task = asyncio.create_task(self._receive_messages())
+        self._stop = False
+        self._task = asyncio.create_task(self._reconnect_loop())
 
-    async def _receive_messages(self):
+    async def _reconnect_loop(self):
+        retry_delay = 1.0
+        while not self._stop:
+            try:
+                url = self.get_ws_url()
+                async with websockets.connect(url) as websocket:
+                    self._websocket = websocket
+                    await self.subscribe()
+                    await self._receive_messages_forever()
+            except Exception as e:
+                self._logger.error("Connection lost: %s. Reconnecting in %.1fs", e, retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
+            finally:
+                self._websocket = None
+
+    async def _receive_messages_forever(self):
         try:
             async for message in self._websocket:
                 data = json.loads(message)
@@ -44,24 +59,21 @@ class WebSocketPriceFetcher(abc.ABC):
                             self._prices[sym] = price
         except websockets.exceptions.ConnectionClosed:
             self._logger.warning("WebSocket connection closed")
+            raise
         except Exception as e:
             self._logger.error("Error receiving messages: %s", e)
+            raise
 
     async def subscribe(self):
         msg = self.get_subscription_message(self.symbols)
         if msg is not None:
             await self._websocket.send(json.dumps(msg))
 
-    async def get_prices(self) -> Dict[str, Optional[float]]:
-        timeout = 2.0
-        start = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start < timeout:
-            if all(price is not None for price in self._prices.values()):
-                break
-            await asyncio.sleep(0.1)
+    def get_current_prices(self) -> Dict[str, Optional[float]]:
         return self._prices.copy()
 
     async def close(self):
+        self._stop = True
         if self._task:
             self._task.cancel()
             try:

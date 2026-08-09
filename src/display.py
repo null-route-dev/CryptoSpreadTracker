@@ -1,7 +1,8 @@
-from colorama import Fore, Style, init
+from rich.console import Console
+from rich.table import Table
 from typing import Dict, List, Tuple
 
-init(autoreset=True)
+console = Console()
 
 def print_spreads(
     analysis: Dict[str, List[Tuple[str, float, float]]],
@@ -9,7 +10,7 @@ def print_spreads(
     top: int = None
 ):
     if not analysis:
-        print("\n❌ No prices fetched from any exchange.\n")
+        console.print("\n❌ No prices fetched from any exchange.\n")
         return
 
     for symbol, entries in analysis.items():
@@ -22,16 +23,21 @@ def print_spreads(
         if top and top > 0:
             filtered = filtered[:top]
 
-        print(f"\n📊 Spread Analysis for {symbol}:\n")
-        print(f"{'Exchange':<12} {'Price (USDT)':<15} {'Spread (%)':<10}")
-        print("-" * 40)
+        table = Table(title=f"📊 Spread Analysis for {symbol}", show_header=True, header_style="bold magenta")
+        table.add_column("Exchange", style="cyan", no_wrap=True)
+        table.add_column("Price (USDT)", justify="right", style="green")
+        table.add_column("Spread (%)", justify="right")
 
         for exchange, price, spread in filtered:
-            color = Fore.GREEN if spread >= 0 else Fore.RED
+            color = "green" if spread >= 0 else "red"
             if abs(spread) > 1.0:
-                color = Fore.CYAN + Style.BRIGHT
-            print(f"{exchange:<12} {price:<15.2f} {color}{spread:>+8.2f}%{Style.RESET_ALL}")
+                color = "bright_cyan"
+            table.add_row(exchange, f"{price:.2f}", f"[{color}]{spread:>+8.2f}%[/{color}]")
 
-        print("-" * 40)
         best_ex, best_price, _ = filtered[0]
-        print(f"Best price: {best_ex} at {best_price:.2f} USDT\n")
+        table.add_section()
+        table.add_row("", "", "")
+        table.add_row("Best price:", f"{best_ex} at {best_price:.2f} USDT", "")
+
+        console.print(table)
+        console.print()

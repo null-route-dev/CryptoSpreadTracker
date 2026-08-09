@@ -1,6 +1,6 @@
 import argparse
 import asyncio
-import sys
+import signal
 from src.cli import run
 
 def parse_args():
@@ -40,15 +40,27 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 def main():
     args = parse_args()
-    try:
-        asyncio.run(run(args))
-    except KeyboardInterrupt:
-        print("\nShutdown requested. Exiting gracefully.")
-        sys.exit(0)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
+    def shutdown():
+        print("\nShutdown requested. Exiting gracefully.")
+        loop.stop()
+
+    try:
+        loop.add_signal_handler(signal.SIGINT, shutdown)
+        loop.add_signal_handler(signal.SIGTERM, shutdown)
+    except NotImplementedError:
+        pass
+
+    try:
+        loop.run_until_complete(run(args))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     main()

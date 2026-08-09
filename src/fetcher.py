@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, List, Optional
 
@@ -16,19 +17,44 @@ EXCHANGE_FETCHER_MAP = {
     "kraken": KrakenWebSocketFetcher,
 }
 
-async def fetch_prices_for_exchange(exchange_id: str, symbols: List[str]) -> Dict[str, Optional[float]]:
-    fetcher_class = EXCHANGE_FETCHER_MAP.get(exchange_id.lower())
-    if not fetcher_class:
-        raise ValueError(f"Unsupported exchange: {exchange_id}")
 
-    fetcher: WebSocketPriceFetcher = fetcher_class(symbols)
-    try:
-        await fetcher.connect()
-        await fetcher.subscribe()
-        prices = await fetcher.get_prices()
-        return prices
-    except Exception as e:
-        logger.error("Error fetching from %s via WebSocket: %s", exchange_id, e)
-        return {sym: None for sym in symbols}
-    finally:
-        await fetcher.close()
+class PriceFetcherManager:
+    def __init__(self, exchange_ids: List[str], symbols: List[str]):
+        self.exchange_ids = exchange_ids
+        self.symbols = symbols
+        self.clients: Dict[str, WebSocketPriceFetcher] = {}
+        self.prices: Dict[str, Dict[str, Optional[float]]] = {}
+        self._update_task = None
+        self._running = False
+
+    async def start(self):
+        for ex_id in self.exchange_ids:
+            client_class = EXCHANGE_FETCHER_MAP.get(ex_id.lower())
+            if not client_class:
+                raise ValueError(f"Unsupported exchange: {ex_id}")
+            client = client_class(self.symbols)
+            self.clients[ex_id] = client
+            await client.connect()
+            self.prices[ex_id] = {sym: None for sym in self.symbols}
+        self._running = True
+        self._update_task = asyncio.create_task(self._update_prices_loop())
+
+    async def _update_prices_loop(self):
+        while self._running:
+            for ex_id, client in self.clients.items():
+                self.prices[ex_id] = client.get_current_prices()
+            await asyncio.sleep(0.5)
+
+    async def stop(self):
+        self._running = False
+        if self._update_task:
+            self._update_task.cancel()
+            try:
+                await self._update_task
+            except asyncio.CancelledError:
+                pass
+        for client in self.clients.values():
+            await client.close()
+
+    def get_all_prices(self) -> Dict[str, Dict[str, Optional[float]]]:
+        return self.prices
