@@ -1,0 +1,19 @@
+exchanges:
+  - binance
+  - bybit
+  - kraken
+  - okx
+  - kucoin
+  - gateio
+
+symbols:
+  - BTC/USDT
+  - ETH/USDT
+  - SOL/USDT
+
+interval: 3
+min_spread: 0.3
+top: 10
+
+log_level: INFO
+log_file: logs/app.log

@@ -148,3 +148,76 @@ class KrakenWebSocketFetcher(WebSocketPriceFetcher):
                     price = float(item["last"])
                     return {symbol: price}
         return {}
+
+
+class OkxWebSocketFetcher(WebSocketPriceFetcher):
+    def get_ws_url(self) -> str:
+        return "wss://ws.okx.com:8443/ws/v5/public"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [{"channel": "tickers", "instId": sym.replace("/", "-")} for sym in symbols]
+        return {"op": "subscribe", "args": args}
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if data.get("event") == "subscribe":
+            return {}
+        if "data" in data and isinstance(data["data"], list):
+            for item in data["data"]:
+                inst_id = item.get("instId")
+                if inst_id:
+                    symbol = inst_id.replace("-", "/")
+                    if symbol in self.symbols:
+                        price = float(item.get("last", 0))
+                        return {symbol: price}
+        return {}
+
+
+class KuCoinWebSocketFetcher(WebSocketPriceFetcher):
+    def get_ws_url(self) -> str:
+        return "wss://ws-api.kucoin.com/endpoint"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [f"{sym.replace('/', '-')}" for sym in symbols]
+        return {
+            "id": 1,
+            "type": "subscribe",
+            "topic": "/market/ticker:{}".format(",".join(args)),
+            "privateChannel": False,
+            "response": True
+        }
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if data.get("type") == "message" and "data" in data:
+            ticker_data = data["data"]
+            symbol = ticker_data.get("symbol")
+            if symbol:
+                price = float(ticker_data.get("price", 0))
+                for sym in self.symbols:
+                    if sym.replace("/", "-") == symbol:
+                        return {sym: price}
+        return {}
+
+
+class GateIoWebSocketFetcher(WebSocketPriceFetcher):
+    def get_ws_url(self) -> str:
+        return "wss://ws.gate.io/v4/"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [f"spot.tickers.{sym.replace('/', '_')}" for sym in symbols]
+        return {
+            "time": 123456,
+            "channel": "spot.tickers",
+            "event": "subscribe",
+            "payload": args
+        }
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if data.get("channel") == "spot.tickers" and "result" in data:
+            for item in data["result"]:
+                symbol = item.get("currency_pair")
+                if symbol:
+                    price = float(item.get("last", 0))
+                    for sym in self.symbols:
+                        if sym.replace("/", "_") == symbol:
+                            return {sym: price}
+        return {}

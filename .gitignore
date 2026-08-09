@@ -36,3 +36,6 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Config
+config.yaml

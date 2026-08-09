@@ -1,11 +1,36 @@
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
+import os
 from .config import get_config
 from .fetcher import PriceFetcherManager
 from .analyzer import analyze_spreads
 from .display import print_spreads
 
 logger = logging.getLogger(__name__)
+
+def setup_logging(config):
+    log_level = getattr(logging, config["log_level"], logging.INFO)
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    handlers = [logging.StreamHandler()]
+
+    if config.get("log_file"):
+        log_dir = os.path.dirname(config["log_file"])
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            config["log_file"],
+            maxBytes=10*1024*1024,
+            backupCount=5
+        )
+        file_handler.setFormatter(logging.Formatter(log_format))
+        handlers.append(file_handler)
+
+    logging.basicConfig(
+        level=log_level,
+        format=log_format,
+        handlers=handlers
+    )
 
 async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float, top: int):
     all_prices = manager.get_all_prices()
@@ -19,11 +44,7 @@ async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float,
 
 async def run(args):
     config = get_config(args)
-
-    logging.basicConfig(
-        level=getattr(logging, config["log_level"], logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    setup_logging(config)
 
     manager = PriceFetcherManager(config["exchanges"], config["symbols"])
     await manager.start()

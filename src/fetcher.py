@@ -6,6 +6,9 @@ from .websocket_fetcher import (
     BinanceWebSocketFetcher,
     BybitWebSocketFetcher,
     KrakenWebSocketFetcher,
+    OkxWebSocketFetcher,
+    KuCoinWebSocketFetcher,
+    GateIoWebSocketFetcher,
     WebSocketPriceFetcher,
 )
 
@@ -15,6 +18,9 @@ EXCHANGE_FETCHER_MAP = {
     "binance": BinanceWebSocketFetcher,
     "bybit": BybitWebSocketFetcher,
     "kraken": KrakenWebSocketFetcher,
+    "okx": OkxWebSocketFetcher,
+    "kucoin": KuCoinWebSocketFetcher,
+    "gateio": GateIoWebSocketFetcher,
 }
 
 
