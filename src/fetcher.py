@@ -32,6 +32,7 @@ class PriceFetcherManager:
         self.prices: Dict[str, Dict[str, Optional[float]]] = {}
         self._update_task = None
         self._running = False
+        self.update_queue: asyncio.Queue = asyncio.Queue()
 
     async def start(self):
         for ex_id in self.exchange_ids:
@@ -47,8 +48,14 @@ class PriceFetcherManager:
 
     async def _update_prices_loop(self):
         while self._running:
+            changed = False
             for ex_id, client in self.clients.items():
-                self.prices[ex_id] = client.get_current_prices()
+                new_prices = client.get_current_prices()
+                if new_prices != self.prices[ex_id]:
+                    self.prices[ex_id] = new_prices
+                    changed = True
+            if changed:
+                await self.update_queue.put(self.get_all_prices())
             await asyncio.sleep(0.5)
 
     async def stop(self):
