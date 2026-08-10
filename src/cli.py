@@ -42,13 +42,12 @@ async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float,
     analysis = analyze_spreads(prices_by_symbol)
     print_spreads(analysis, min_spread, top)
 
-async def run(args):
-    config = get_config(args)
-    setup_logging(config)
-
+async def run_monitor(config: dict):
     manager = PriceFetcherManager(config["exchanges"], config["symbols"])
     await manager.start()
+    return manager
 
+async def run_cli_loop(manager: PriceFetcherManager, config: dict):
     try:
         if config["interval"] > 0:
             while True:
@@ -59,3 +58,9 @@ async def run(args):
             await run_once_with_manager(manager, config["min_spread"], config["top"])
     finally:
         await manager.stop()
+
+async def run(args):
+    config = get_config(args)
+    setup_logging(config)
+    manager = await run_monitor(config)
+    await run_cli_loop(manager, config)

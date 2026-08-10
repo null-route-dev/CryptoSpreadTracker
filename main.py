@@ -1,7 +1,10 @@
 import argparse
 import asyncio
 import signal
-from src.cli import run
+import uvicorn
+from src.cli import run_monitor, run_cli_loop, setup_logging
+from src.config import get_config
+from src.api import app, set_manager
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -38,7 +41,32 @@ def parse_args():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: INFO)"
     )
+    parser.add_argument(
+        "--api-port",
+        type=int,
+        default=None,
+        help="Start FastAPI server on specified port (e.g. 8000)"
+    )
     return parser.parse_args()
+
+async def run_api(manager, port: int):
+    set_manager(manager)
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+async def main_async(args):
+    config = get_config(args)
+    setup_logging(config)
+
+    manager = await run_monitor(config)
+
+    if args.api_port:
+        api_task = asyncio.create_task(run_api(manager, args.api_port))
+        cli_task = asyncio.create_task(run_cli_loop(manager, config))
+        await asyncio.gather(api_task, cli_task)
+    else:
+        await run_cli_loop(manager, config)
 
 def main():
     args = parse_args()
@@ -56,7 +84,7 @@ def main():
         pass
 
     try:
-        loop.run_until_complete(run(args))
+        loop.run_until_complete(main_async(args))
     except KeyboardInterrupt:
         pass
     finally:
