@@ -5,15 +5,21 @@ exchanges:
   - okx
   - kucoin
   - gateio
+  - huobi
+  - bitget
+  - mexc
 
 symbols:
   - BTC/USDT
   - ETH/USDT
-  - SOL/USDT
 
-interval: 3
-min_spread: 0.3
-top: 10
+interval: 5
+min_spread: 0.2
+top: 5
+
+mode: orderbook
+orderbook_depth: 10
+orderbook_amount: 1000.0
 
 log_level: INFO
 log_file: logs/app.log

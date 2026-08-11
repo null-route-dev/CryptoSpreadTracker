@@ -1,6 +1,6 @@
 import os
 import yaml
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 def load_yaml_config(path: str = "config.yaml") -> Dict[str, Any]:
     if not os.path.exists(path):
@@ -8,7 +8,7 @@ def load_yaml_config(path: str = "config.yaml") -> Dict[str, Any]:
     with open(path, "r") as f:
         return yaml.safe_load(f) or {}
 
-def merge_config(cli_args: Any, env_prefix: str = "") -> Dict[str, Any]:
+def merge_config(cli_args: Any) -> Dict[str, Any]:
     yaml_config = load_yaml_config()
     config = {
         "exchanges": [],
@@ -18,6 +18,9 @@ def merge_config(cli_args: Any, env_prefix: str = "") -> Dict[str, Any]:
         "top": None,
         "log_level": "INFO",
         "log_file": None,
+        "mode": "ticker",
+        "orderbook_depth": 10,
+        "orderbook_amount": 1000.0,
     }
 
     if yaml_config:
@@ -61,5 +64,20 @@ def merge_config(cli_args: Any, env_prefix: str = "") -> Dict[str, Any]:
 
     if os.getenv("LOG_FILE"):
         config["log_file"] = os.getenv("LOG_FILE")
+
+    if os.getenv("MODE"):
+        config["mode"] = os.getenv("MODE").lower()
+    if "mode" in yaml_config:
+        config["mode"] = yaml_config["mode"]
+
+    if os.getenv("ORDERBOOK_DEPTH"):
+        config["orderbook_depth"] = int(os.getenv("ORDERBOOK_DEPTH"))
+    if "orderbook_depth" in yaml_config:
+        config["orderbook_depth"] = yaml_config["orderbook_depth"]
+
+    if os.getenv("ORDERBOOK_AMOUNT"):
+        config["orderbook_amount"] = float(os.getenv("ORDERBOOK_AMOUNT"))
+    if "orderbook_amount" in yaml_config:
+        config["orderbook_amount"] = yaml_config["orderbook_amount"]
 
     return config

@@ -36,14 +36,20 @@ async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float,
     all_prices = manager.get_all_prices()
     prices_by_symbol = {}
     for ex_id, ex_prices in all_prices.items():
-        for sym, price in ex_prices.items():
-            if price is not None:
-                prices_by_symbol.setdefault(sym, {})[ex_id] = price
+        for sym, data in ex_prices.items():
+            if data is not None:
+                prices_by_symbol.setdefault(sym, {})[ex_id] = data
     analysis = analyze_spreads(prices_by_symbol)
     print_spreads(analysis, min_spread, top)
 
 async def run_monitor(config: dict):
-    manager = PriceFetcherManager(config["exchanges"], config["symbols"])
+    manager = PriceFetcherManager(
+        config["exchanges"],
+        config["symbols"],
+        mode=config.get("mode", "ticker"),
+        depth=config.get("orderbook_depth", 10),
+        amount=config.get("orderbook_amount", 1000.0)
+    )
     await manager.start()
     return manager
 
