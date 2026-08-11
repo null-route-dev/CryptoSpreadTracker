@@ -21,6 +21,7 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "mode": "ticker",
         "orderbook_depth": 10,
         "orderbook_amount": 1000.0,
+        "stats_window": 0,
     }
 
     if yaml_config:
@@ -79,5 +80,12 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["orderbook_amount"] = float(os.getenv("ORDERBOOK_AMOUNT"))
     if "orderbook_amount" in yaml_config:
         config["orderbook_amount"] = yaml_config["orderbook_amount"]
+
+    if cli_args.stats_window is not None:
+        config["stats_window"] = cli_args.stats_window
+    elif os.getenv("STATS_WINDOW"):
+        config["stats_window"] = int(os.getenv("STATS_WINDOW"))
+    elif "stats_window" in yaml_config:
+        config["stats_window"] = yaml_config["stats_window"]
 
     return config

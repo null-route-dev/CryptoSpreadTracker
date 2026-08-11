@@ -47,6 +47,12 @@ def parse_args():
         default=None,
         help="Start FastAPI server on specified port (e.g. 8000)"
     )
+    parser.add_argument(
+        "--stats-window",
+        type=int,
+        default=0,
+        help="Number of recent spreads to keep for statistics (0 to disable)"
+    )
     return parser.parse_args()
 
 async def run_api(manager, port: int):

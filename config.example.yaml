@@ -21,5 +21,7 @@ mode: orderbook
 orderbook_depth: 10
 orderbook_amount: 1000.0
 
+stats_window: 20
+
 log_level: INFO
 log_file: logs/app.log
