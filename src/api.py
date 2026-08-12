@@ -8,11 +8,13 @@ app = FastAPI(title="CryptoSpreadTracker API")
 
 _manager: Optional[PriceFetcherManager] = None
 _websocket_clients: List[WebSocket] = []
+_arbitrage_clients: List[WebSocket] = []
 
 def set_manager(manager: PriceFetcherManager):
     global _manager
     _manager = manager
     asyncio.create_task(_broadcast_updates())
+    asyncio.create_task(_broadcast_arbitrage())
 
 async def _broadcast_updates():
     if not _manager:
@@ -28,6 +30,46 @@ async def _broadcast_updates():
             analysis = analyze_spreads(prices_by_symbol)
             message = {"type": "spreads", "data": analysis}
             for ws in _websocket_clients[:]:
+                try:
+                    await ws.send_json(message)
+                except:
+                    pass
+        except Exception:
+            continue
+
+async def _broadcast_arbitrage():
+    if not _manager:
+        return
+    while True:
+        try:
+            raw_prices = await _manager.update_queue.get()
+            prices_by_symbol = {}
+            for ex_id, ex_prices in raw_prices.items():
+                for sym, price in ex_prices.items():
+                    if price is not None:
+                        prices_by_symbol.setdefault(sym, {})[ex_id] = price
+            analysis = analyze_spreads(prices_by_symbol)
+
+            rows = []
+            for symbol, entries in analysis.items():
+                if len(entries) < 2:
+                    continue
+                min_price = min(e[1] for e in entries)
+                max_price = max(e[1] for e in entries)
+                min_exchange = next(e[0] for e in entries if e[1] == min_price)
+                max_exchange = next(e[0] for e in entries if e[1] == max_price)
+                spread_pct = ((max_price - min_price) / min_price) * 100
+                rows.append({
+                    "symbol": symbol,
+                    "buy_exchange": min_exchange,
+                    "buy_price": min_price,
+                    "sell_exchange": max_exchange,
+                    "sell_price": max_price,
+                    "spread_pct": spread_pct
+                })
+            rows.sort(key=lambda x: x["spread_pct"], reverse=True)
+            message = {"type": "arbitrage", "data": rows}
+            for ws in _arbitrage_clients[:]:
                 try:
                     await ws.send_json(message)
                 except:
@@ -98,3 +140,16 @@ async def websocket_spreads(websocket: WebSocket):
     except Exception:
         if websocket in _websocket_clients:
             _websocket_clients.remove(websocket)
+
+@app.websocket("/ws/arbitrage")
+async def websocket_arbitrage(websocket: WebSocket):
+    await websocket.accept()
+    _arbitrage_clients.append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        _arbitrage_clients.remove(websocket)
+    except Exception:
+        if websocket in _arbitrage_clients:
+            _arbitrage_clients.remove(websocket)
