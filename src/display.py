@@ -65,3 +65,42 @@ def print_spreads(
         table.add_row("Best mid price:", f"{best_ex} at {best_mid:.2f} USDT", "", "", "")
         console.print(table)
         console.print()
+
+def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, float, float]]]):
+    if not analysis:
+        console.print("❌ No data for arbitrage summary.")
+        return
+
+    rows = []
+    for symbol, entries in analysis.items():
+        if len(entries) < 2:
+            continue
+        min_price = min(e[1] for e in entries)  # mid price
+        max_price = max(e[1] for e in entries)
+        min_exchange = next(e[0] for e in entries if e[1] == min_price)
+        max_exchange = next(e[0] for e in entries if e[1] == max_price)
+        spread_pct = ((max_price - min_price) / min_price) * 100
+        rows.append((symbol, min_exchange, max_exchange, spread_pct, min_price, max_price))
+
+    if not rows:
+        console.print("No arbitrage opportunities (need at least 2 exchanges per symbol).")
+        return
+
+    rows.sort(key=lambda x: x[3], reverse=True)
+
+    table = Table(title="🔄 Arbitrage Opportunities (Buy Low / Sell High)", show_header=True, header_style="bold green")
+    table.add_column("Symbol", style="cyan", no_wrap=True)
+    table.add_column("Buy (min price)", justify="right")
+    table.add_column("Sell (max price)", justify="right")
+    table.add_column("Spread %", justify="right", style="bright_yellow")
+
+    for symbol, buy_ex, sell_ex, spread, min_p, max_p in rows:
+        table.add_row(
+            symbol,
+            f"{buy_ex} @ {min_p:.2f}",
+            f"{sell_ex} @ {max_p:.2f}",
+            f"{spread:>+6.2f}%"
+        )
+
+    console.print(table)
+    console.print()

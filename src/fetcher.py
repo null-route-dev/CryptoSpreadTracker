@@ -1,7 +1,6 @@
 import asyncio
 import logging
-from typing import Dict, List, Optional, Union
-
+from typing import Dict, List, Optional, Union, Set
 from .websocket_fetcher import (
     BinanceWebSocketFetcher,
     BybitWebSocketFetcher,
@@ -21,6 +20,7 @@ from .websocket_fetcher import (
     WebSocketPriceFetcher,
     OrderBookFetcher,
 )
+from .symbol_fetcher import SYMBOL_FETCHERS
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,6 @@ ORDERBOOK_MAP = {
     "kucoin": KuCoinOrderBookFetcher,
     "gateio": GateIoOrderBookFetcher,
 }
-
 
 class PriceFetcherManager:
     def __init__(self, exchange_ids: List[str], symbols: List[str], mode: str = "ticker", depth: int = 10, amount: float = 1000.0):
@@ -120,3 +119,27 @@ class PriceFetcherManager:
 
     def get_all_prices(self) -> Dict[str, Dict[str, Optional[Union[float, Dict]]]]:
         return self.prices
+
+
+async def discover_common_symbols(exchange_ids: List[str], min_exchanges: int = 2) -> List[str]:
+    symbol_sets = {}
+    for ex_id in exchange_ids:
+        fetcher = SYMBOL_FETCHERS.get(ex_id.lower())
+        if not fetcher:
+            logger.warning("No symbol fetcher for %s, skipping", ex_id)
+            continue
+        try:
+            symbols = await fetcher()
+            if symbols:
+                symbol_sets[ex_id] = set(symbols)
+                logger.info("Fetched %d symbols from %s", len(symbols), ex_id)
+            else:
+                logger.warning("No symbols from %s", ex_id)
+        except Exception as e:
+            logger.error("Failed to fetch symbols from %s: %s", ex_id, e)
+    if not symbol_sets:
+        return []
+    common = set.intersection(*symbol_sets.values())
+    result = sorted(common)
+    logger.info("Found %d common symbols", len(result))
+    return result

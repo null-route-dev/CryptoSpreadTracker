@@ -22,6 +22,7 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "orderbook_depth": 10,
         "orderbook_amount": 1000.0,
         "stats_window": 0,
+        "discover": False,
     }
 
     if yaml_config:
@@ -87,5 +88,12 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["stats_window"] = int(os.getenv("STATS_WINDOW"))
     elif "stats_window" in yaml_config:
         config["stats_window"] = yaml_config["stats_window"]
+
+    if cli_args.discover:
+        config["discover"] = True
+    elif os.getenv("DISCOVER", "").lower() == "true":
+        config["discover"] = True
+    elif "discover" in yaml_config:
+        config["discover"] = yaml_config["discover"]
 
     return config

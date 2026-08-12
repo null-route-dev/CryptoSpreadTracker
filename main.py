@@ -53,6 +53,11 @@ def parse_args():
         default=0,
         help="Number of recent spreads to keep for statistics (0 to disable)"
     )
+    parser.add_argument(
+        "--discover",
+        action="store_true",
+        help="Automatically discover common trading pairs across exchanges and show arbitrage summary"
+    )
     return parser.parse_args()
 
 async def run_api(manager, port: int):
@@ -66,6 +71,8 @@ async def main_async(args):
     setup_logging(config)
 
     manager = await run_monitor(config)
+    if manager is None:
+        return
 
     if args.api_port:
         api_task = asyncio.create_task(run_api(manager, args.api_port))
