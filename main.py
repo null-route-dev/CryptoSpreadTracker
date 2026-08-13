@@ -58,6 +58,11 @@ def parse_args():
         action="store_true",
         help="Automatically discover common trading pairs across exchanges and show arbitrage summary"
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Enable interactive CLI mode (type commands during runtime)"
+    )
     return parser.parse_args()
 
 async def run_api(manager, port: int):

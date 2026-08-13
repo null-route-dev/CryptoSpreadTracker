@@ -2,6 +2,7 @@ import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+import sys
 from .config import get_config
 from .fetcher import PriceFetcherManager, discover_common_symbols
 from .analyzer import analyze_spreads
@@ -33,7 +34,7 @@ def setup_logging(config):
         handlers=handlers
     )
 
-async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float, top: int, stats: SpreadStats = None, discover: bool = False):
+async def run_once_with_manager(manager, min_spread, top, stats=None, discover=False):
     all_prices = manager.get_all_prices()
     prices_by_symbol = {}
     for ex_id, ex_prices in all_prices.items():
@@ -51,7 +52,67 @@ async def run_once_with_manager(manager: PriceFetcherManager, min_spread: float,
     else:
         print_spreads(analysis, min_spread, top, stats)
 
-async def run_monitor(config: dict):
+async def interactive_loop(manager, config):
+    loop = asyncio.get_event_loop()
+    reader = asyncio.StreamReader()
+    await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
+    print("\nInteractive mode enabled. Type 'help' for commands.\n")
+    while True:
+        try:
+            line = await reader.readline()
+            if not line:
+                break
+            cmd = line.decode().strip().lower()
+            if not cmd:
+                continue
+            parts = cmd.split()
+            command = parts[0]
+            if command == "help":
+                print("Available commands:")
+                print("  add <exchange>         - add exchange")
+                print("  remove <exchange>      - remove exchange")
+                print("  add_symbol <symbol>    - add symbol")
+                print("  remove_symbol <symbol> - remove symbol")
+                print("  mode <ticker|orderbook> - switch mode")
+                print("  list                   - show current exchanges and symbols")
+                print("  quit / exit            - stop program")
+            elif command == "add" and len(parts) == 2:
+                ex = parts[1]
+                await manager.add_exchange(ex)
+                print(f"Added exchange: {ex}")
+            elif command == "remove" and len(parts) == 2:
+                ex = parts[1]
+                await manager.remove_exchange(ex)
+                print(f"Removed exchange: {ex}")
+            elif command == "add_symbol" and len(parts) == 2:
+                sym = parts[1].upper()
+                await manager.add_symbol(sym)
+                print(f"Added symbol: {sym}")
+            elif command == "remove_symbol" and len(parts) == 2:
+                sym = parts[1].upper()
+                await manager.remove_symbol(sym)
+                print(f"Removed symbol: {sym}")
+            elif command == "mode" and len(parts) == 2:
+                mode = parts[1]
+                if mode not in ("ticker", "orderbook"):
+                    print("Mode must be 'ticker' or 'orderbook'")
+                else:
+                    await manager.switch_mode(mode)
+                    print(f"Switched to mode: {mode}")
+            elif command == "list":
+                exchanges = manager.get_current_exchanges()
+                symbols = manager.get_current_symbols()
+                print(f"Exchanges: {', '.join(exchanges)}")
+                print(f"Symbols: {', '.join(symbols)}")
+            elif command in ("quit", "exit"):
+                print("Exiting interactive mode. Press Ctrl+C to stop.")
+                return
+            else:
+                print("Unknown command. Type 'help' for list.")
+        except Exception as e:
+            logger.error("Interactive error: %s", e)
+
+async def run_monitor(config):
     exchange_ids = config["exchanges"]
     symbols = config["symbols"]
 
@@ -76,8 +137,11 @@ async def run_monitor(config: dict):
     await manager.start()
     return manager
 
-async def run_cli_loop(manager: PriceFetcherManager, config: dict):
+async def run_cli_loop(manager, config):
     stats = SpreadStats(config.get("stats_window", 0))
+    interactive_task = None
+    if config.get("interactive", False):
+        interactive_task = asyncio.create_task(interactive_loop(manager, config))
     try:
         if config["interval"] > 0:
             while True:
@@ -87,6 +151,12 @@ async def run_cli_loop(manager: PriceFetcherManager, config: dict):
             await asyncio.sleep(1.5)
             await run_once_with_manager(manager, config["min_spread"], config["top"], stats, config.get("discover", False))
     finally:
+        if interactive_task:
+            interactive_task.cancel()
+            try:
+                await interactive_task
+            except asyncio.CancelledError:
+                pass
         await manager.stop()
 
 async def run(args):

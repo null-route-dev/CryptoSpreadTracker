@@ -23,6 +23,7 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "orderbook_amount": 1000.0,
         "stats_window": 0,
         "discover": False,
+        "interactive": False,
     }
 
     if yaml_config:
@@ -95,5 +96,12 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["discover"] = True
     elif "discover" in yaml_config:
         config["discover"] = yaml_config["discover"]
+
+    if cli_args.interactive:
+        config["interactive"] = True
+    elif os.getenv("INTERACTIVE", "").lower() == "true":
+        config["interactive"] = True
+    elif "interactive" in yaml_config:
+        config["interactive"] = yaml_config["interactive"]
 
     return config

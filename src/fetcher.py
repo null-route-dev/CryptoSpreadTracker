@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Dict, List, Optional, Union, Set
+from typing import Dict, List, Optional, Union
 from .websocket_fetcher import (
     BinanceWebSocketFetcher,
     BybitWebSocketFetcher,
@@ -47,8 +47,8 @@ ORDERBOOK_MAP = {
 
 class PriceFetcherManager:
     def __init__(self, exchange_ids: List[str], symbols: List[str], mode: str = "ticker", depth: int = 10, amount: float = 1000.0):
-        self.exchange_ids = exchange_ids
-        self.symbols = symbols
+        self.exchange_ids = set(exchange_ids)
+        self.symbols = set(symbols)
         self.mode = mode
         self.depth = depth
         self.amount = amount
@@ -57,29 +57,93 @@ class PriceFetcherManager:
         self._update_task = None
         self._running = False
         self.update_queue: asyncio.Queue = asyncio.Queue()
+        self._lock = asyncio.Lock()
 
     async def start(self):
-        for ex_id in self.exchange_ids:
-            if self.mode == "ticker":
-                client_class = TICKER_MAP.get(ex_id.lower())
-                if not client_class:
-                    raise ValueError(f"Unsupported exchange for ticker: {ex_id}")
-                client = client_class(self.symbols)
-                self.clients[ex_id] = client
-                await client.connect()
-                self.prices[ex_id] = {sym: None for sym in self.symbols}
-            elif self.mode == "orderbook":
-                client_class = ORDERBOOK_MAP.get(ex_id.lower())
-                if not client_class:
-                    raise ValueError(f"Unsupported exchange for orderbook: {ex_id}")
-                client = client_class(self.symbols, depth=self.depth, amount=self.amount)
-                self.clients[ex_id] = client
-                await client.connect()
-                self.prices[ex_id] = {sym: {"bid": None, "ask": None, "mid": None, "bids": [], "asks": []} for sym in self.symbols}
-            else:
-                raise ValueError(f"Invalid mode: {self.mode}")
-        self._running = True
-        self._update_task = asyncio.create_task(self._update_prices_loop())
+        async with self._lock:
+            if self._running:
+                return
+            for ex_id in self.exchange_ids:
+                await self._add_exchange_client(ex_id)
+            self._running = True
+            self._update_task = asyncio.create_task(self._update_prices_loop())
+
+    async def _add_exchange_client(self, ex_id: str):
+        if ex_id in self.clients:
+            return
+        if self.mode == "ticker":
+            client_class = TICKER_MAP.get(ex_id.lower())
+            if not client_class:
+                raise ValueError(f"Unsupported exchange for ticker: {ex_id}")
+            client = client_class(list(self.symbols))
+            await client.connect()
+            self.clients[ex_id] = client
+            self.prices[ex_id] = {sym: None for sym in self.symbols}
+        elif self.mode == "orderbook":
+            client_class = ORDERBOOK_MAP.get(ex_id.lower())
+            if not client_class:
+                raise ValueError(f"Unsupported exchange for orderbook: {ex_id}")
+            client = client_class(list(self.symbols), depth=self.depth, amount=self.amount)
+            await client.connect()
+            self.clients[ex_id] = client
+            self.prices[ex_id] = {sym: {"bid": None, "ask": None, "mid": None, "bids": [], "asks": []} for sym in self.symbols}
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
+    async def _remove_exchange_client(self, ex_id: str):
+        if ex_id not in self.clients:
+            return
+        await self.clients[ex_id].close()
+        del self.clients[ex_id]
+        del self.prices[ex_id]
+
+    async def add_exchange(self, ex_id: str):
+        async with self._lock:
+            if ex_id in self.exchange_ids:
+                logger.info("Exchange %s already active", ex_id)
+                return
+            self.exchange_ids.add(ex_id)
+            await self._add_exchange_client(ex_id)
+
+    async def remove_exchange(self, ex_id: str):
+        async with self._lock:
+            if ex_id not in self.exchange_ids:
+                logger.info("Exchange %s not active", ex_id)
+                return
+            self.exchange_ids.remove(ex_id)
+            await self._remove_exchange_client(ex_id)
+
+    async def add_symbol(self, symbol: str):
+        async with self._lock:
+            if symbol in self.symbols:
+                logger.info("Symbol %s already tracked", symbol)
+                return
+            self.symbols.add(symbol)
+            for ex_id in list(self.clients.keys()):
+                await self._remove_exchange_client(ex_id)
+                await self._add_exchange_client(ex_id)
+
+    async def remove_symbol(self, symbol: str):
+        async with self._lock:
+            if symbol not in self.symbols:
+                logger.info("Symbol %s not tracked", symbol)
+                return
+            self.symbols.remove(symbol)
+            for ex_id in list(self.clients.keys()):
+                await self._remove_exchange_client(ex_id)
+                await self._add_exchange_client(ex_id)
+
+    async def switch_mode(self, mode: str, depth: int = 10, amount: float = 1000.0):
+        async with self._lock:
+            if mode == self.mode and depth == self.depth and amount == self.amount:
+                logger.info("Mode already %s", mode)
+                return
+            self.mode = mode
+            self.depth = depth
+            self.amount = amount
+            for ex_id in list(self.clients.keys()):
+                await self._remove_exchange_client(ex_id)
+                await self._add_exchange_client(ex_id)
 
     async def _update_prices_loop(self):
         while self._running:
@@ -120,6 +184,11 @@ class PriceFetcherManager:
     def get_all_prices(self) -> Dict[str, Dict[str, Optional[Union[float, Dict]]]]:
         return self.prices
 
+    def get_current_exchanges(self) -> List[str]:
+        return list(self.exchange_ids)
+
+    def get_current_symbols(self) -> List[str]:
+        return list(self.symbols)
 
 async def discover_common_symbols(exchange_ids: List[str], min_exchanges: int = 2) -> List[str]:
     symbol_sets = {}
