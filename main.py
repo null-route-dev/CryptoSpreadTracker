@@ -63,6 +63,17 @@ def parse_args():
         action="store_true",
         help="Enable interactive CLI mode (type commands during runtime)"
     )
+    parser.add_argument(
+        "--triangular",
+        action="store_true",
+        help="Enable triangular arbitrage detection"
+    )
+    parser.add_argument(
+        "--triangular-min-profit",
+        type=float,
+        default=0.0,
+        help="Minimum profit percentage for triangular arbitrage (default: 0.0)"
+    )
     return parser.parse_args()
 
 async def run_api(manager, port: int):

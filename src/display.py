@@ -75,7 +75,7 @@ def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, fl
     for symbol, entries in analysis.items():
         if len(entries) < 2:
             continue
-        min_price = min(e[1] for e in entries)  # mid price
+        min_price = min(e[1] for e in entries)
         max_price = max(e[1] for e in entries)
         min_exchange = next(e[0] for e in entries if e[1] == min_price)
         max_exchange = next(e[0] for e in entries if e[1] == max_price)
@@ -100,6 +100,37 @@ def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, fl
             f"{buy_ex} @ {min_p:.2f}",
             f"{sell_ex} @ {max_p:.2f}",
             f"{spread:>+6.2f}%"
+        )
+
+    console.print(table)
+    console.print()
+
+def print_triangular_summary(opportunities: List[Dict], min_profit: float = 0.0):
+    if not opportunities:
+        console.print("❌ No triangular arbitrage opportunities found.")
+        return
+
+    filtered = [o for o in opportunities if o["profit"] >= min_profit]
+    if not filtered:
+        console.print(f"❌ No triangular opportunities with profit >= {min_profit:.2f}%.")
+        return
+
+    table = Table(title="🔺 Triangular Arbitrage Opportunities", show_header=True, header_style="bold cyan")
+    table.add_column("Exchange", style="cyan", no_wrap=True)
+    table.add_column("Path", style="yellow")
+    table.add_column("Profit %", justify="right", style="bright_green")
+    table.add_column("Price1", justify="right")
+    table.add_column("Price2", justify="right")
+    table.add_column("Price3", justify="right")
+
+    for opp in filtered:
+        table.add_row(
+            opp["exchange"],
+            opp["path"],
+            f"{opp['profit']:>+6.2f}%",
+            f"{opp['price1']:.6f}",
+            f"{opp['price2']:.6f}",
+            f"{opp['price3']:.6f}"
         )
 
     console.print(table)

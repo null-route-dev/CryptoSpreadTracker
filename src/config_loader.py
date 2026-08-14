@@ -24,6 +24,8 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "stats_window": 0,
         "discover": False,
         "interactive": False,
+        "triangular": False,
+        "triangular_min_profit": 0.0,
     }
 
     if yaml_config:
@@ -103,5 +105,19 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["interactive"] = True
     elif "interactive" in yaml_config:
         config["interactive"] = yaml_config["interactive"]
+
+    if cli_args.triangular:
+        config["triangular"] = True
+    elif os.getenv("TRIANGULAR", "").lower() == "true":
+        config["triangular"] = True
+    elif "triangular" in yaml_config:
+        config["triangular"] = yaml_config["triangular"]
+
+    if cli_args.triangular_min_profit is not None:
+        config["triangular_min_profit"] = float(cli_args.triangular_min_profit)
+    elif os.getenv("TRIANGULAR_MIN_PROFIT"):
+        config["triangular_min_profit"] = float(os.getenv("TRIANGULAR_MIN_PROFIT"))
+    elif "triangular_min_profit" in yaml_config:
+        config["triangular_min_profit"] = yaml_config["triangular_min_profit"]
 
     return config

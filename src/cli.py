@@ -4,9 +4,9 @@ from logging.handlers import RotatingFileHandler
 import os
 import sys
 from .config import get_config
-from .fetcher import PriceFetcherManager, discover_common_symbols
+from .fetcher import PriceFetcherManager, discover_common_symbols, discover_triangular_opportunities
 from .analyzer import analyze_spreads
-from .display import print_spreads, print_arbitrage_summary
+from .display import print_spreads, print_arbitrage_summary, print_triangular_summary
 from .stats import SpreadStats
 
 logger = logging.getLogger(__name__)
@@ -34,23 +34,34 @@ def setup_logging(config):
         handlers=handlers
     )
 
-async def run_once_with_manager(manager, min_spread, top, stats=None, discover=False):
+async def run_once_with_manager(manager, config):
     all_prices = manager.get_all_prices()
     prices_by_symbol = {}
     for ex_id, ex_prices in all_prices.items():
         for sym, data in ex_prices.items():
             if data is not None:
                 prices_by_symbol.setdefault(sym, {})[ex_id] = data
-    analysis = analyze_spreads(prices_by_symbol)
-    if stats:
-        for symbol, entries in analysis.items():
-            for entry in entries:
-                exchange, mid, bid, ask, spread = entry
-                stats.update(symbol, exchange, spread)
-    if discover:
-        print_arbitrage_summary(analysis)
+
+    if config.get("triangular", False):
+        opportunities = discover_triangular_opportunities(
+            prices_by_symbol,
+            min_profit=config.get("triangular_min_profit", 0.0)
+        )
+        print_triangular_summary(opportunities, config.get("triangular_min_profit", 0.0))
     else:
-        print_spreads(analysis, min_spread, top, stats)
+        analysis = analyze_spreads(prices_by_symbol)
+        if config.get("stats_window", 0) > 0:
+            stats = SpreadStats(config["stats_window"])
+            for symbol, entries in analysis.items():
+                for entry in entries:
+                    exchange, mid, bid, ask, spread = entry
+                    stats.update(symbol, exchange, spread)
+        else:
+            stats = None
+        if config.get("discover", False):
+            print_arbitrage_summary(analysis)
+        else:
+            print_spreads(analysis, config["min_spread"], config["top"], stats)
 
 async def interactive_loop(manager, config):
     loop = asyncio.get_event_loop()
@@ -116,8 +127,8 @@ async def run_monitor(config):
     exchange_ids = config["exchanges"]
     symbols = config["symbols"]
 
-    if config.get("discover", False):
-        logger.info("Discovering common symbols...")
+    if config.get("discover", False) or config.get("triangular", False):
+        logger.info("Discovering common symbols for %s mode...", "triangular" if config.get("triangular") else "discover")
         symbols = await discover_common_symbols(exchange_ids, min_exchanges=2)
         if not symbols:
             logger.error("No common symbols found. Exiting.")
@@ -138,18 +149,17 @@ async def run_monitor(config):
     return manager
 
 async def run_cli_loop(manager, config):
-    stats = SpreadStats(config.get("stats_window", 0))
     interactive_task = None
     if config.get("interactive", False):
         interactive_task = asyncio.create_task(interactive_loop(manager, config))
     try:
         if config["interval"] > 0:
             while True:
-                await run_once_with_manager(manager, config["min_spread"], config["top"], stats, config.get("discover", False))
+                await run_once_with_manager(manager, config)
                 await asyncio.sleep(config["interval"])
         else:
             await asyncio.sleep(1.5)
-            await run_once_with_manager(manager, config["min_spread"], config["top"], stats, config.get("discover", False))
+            await run_once_with_manager(manager, config)
     finally:
         if interactive_task:
             interactive_task.cancel()
