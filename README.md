@@ -1,60 +1,65 @@
 # CryptoSpreadTracker
 
-**CryptoSpreadTracker** is a real-time cryptocurrency arbitrage monitoring system designed to detect and visualize price differences (spreads) across multiple exchanges using WebSocket connections for live data streaming.
+**CryptoSpreadTracker** is a real‑time cryptocurrency arbitrage monitoring system that detects and visualises price differences (spreads) across multiple exchanges, including order‑book depth, VWAP, triangular arbitrage, and a REST/WebSocket API.
 
-> ✅ **Project Status:** MVP – WebSocket price fetching implemented for Binance, Bybit, and Kraken.
+> ✅ **Project Status:** Feature‑rich – WebSocket streaming, order‑book analysis, triangular arbitrage, interactive CLI, and full API are implemented.
 
 ---
 
 ## 🎯 About
 
-CryptoSpreadTracker provides traders and enthusiasts with a clear, actionable view of arbitrage opportunities in the cryptocurrency market. By continuously gathering and comparing prices from various trading platforms via WebSocket connections, the system highlights profitable spreads and helps users make informed decisions in real-time.
+CryptoSpreadTracker connects to exchanges via WebSocket, fetches live prices (ticker or order‑book depth), and computes:
 
-The project focuses on:
-- **Real-time data** acquisition via WebSocket streaming.
-- **Low-latency** price updates.
-- **User-friendly visualization** of spreads directly in the CLI.
-- **Extensibility** – easy to add new exchanges by implementing a simple interface.
+- **Spread analysis** – rank arbitrage opportunities between exchanges.
+- **VWAP** (Volume‑Weighted Average Price) for realistic execution prices.
+- **Triangular arbitrage** – detect profitable cycles within a single exchange.
+- **Cross‑exchange arbitrage summary** – find the best place to buy and sell each asset.
+- **Statistics** – track average, min, max, and standard deviation of spreads.
+
+All data is available through a **CLI** with rich tables, an **interactive mode** for runtime control, and a **FastAPI** server with WebSocket streams for external integration.
 
 ---
 
 ## ✨ Current Features
 
-- ✅ **Multi-exchange price monitoring** via WebSocket (Binance, Bybit, Kraken)
-- ✅ **Real-time spread analysis** – calculate and rank arbitrage opportunities
-- ✅ **Flexible filtering** – filter by minimum spread and top N opportunities
-- ✅ **CLI interface** with colored output for easy reading
-- ✅ **Configurable** via command-line arguments or `.env` file
-- ✅ **Async architecture** for efficient concurrent data fetching
-
-### Planned Features
-
-- [ ] Interactive dashboard – view current spreads, charts, and statistics
-- [ ] Alert system – receive notifications when profitable spreads appear
-- [ ] API access – allow external tools to consume data
-- [ ] Support for more exchanges (OKX, KuCoin, etc.)
+- ✅ **Multi‑exchange WebSocket streaming** – Binance, Bybit, Kraken, OKX, KuCoin, Gate.io, Huobi, Bitget, MEXC.
+- ✅ **Two data modes**: `ticker` (last price) and `orderbook` (depth levels).
+- ✅ **VWAP calculation** – average price for a given amount (USDT) using order‑book liquidity.
+- ✅ **Spread analysis** – rank opportunities across exchanges, filter by min spread and top N.
+- ✅ **Automatic symbol discovery** (`--discover`) – finds common trading pairs across all selected exchanges and shows a buy/sell summary.
+- ✅ **Triangular arbitrage** (`--triangular`) – detects profitable cycles within each exchange.
+- ✅ **Spread statistics** (`--stats-window`) – average, min, max, standard deviation over last N updates.
+- ✅ **Interactive CLI** (`--interactive`) – add/remove exchanges and symbols, switch modes on the fly.
+- ✅ **REST API** (`--api-port`) – endpoints for spreads, triangular opportunities, exchanges, symbols, health.
+- ✅ **WebSocket API** – real‑time streaming of spreads, arbitrage summary, and triangular opportunities.
+- ✅ **Flexible configuration** – via CLI arguments, `.env` file, or YAML config (`config.yaml`).
+- ✅ **Logging** – console and file (with rotation) support.
 
 ---
 
 ## 🧰 Tech Stack
 
 - **Language:** Python 3.12+
-- **Data fetching:** WebSocket (via `websockets` library)
-- **CLI interface:** `argparse` + `colorama` for colored output
-- **Configuration:** `python-dotenv` for environment variables
-- **Package management:** Poetry / pip
+- **Data fetching:** WebSocket (`websockets`), REST (`httpx`)
+- **CLI & tables:** `argparse`, `rich`
+- **Configuration:** `python-dotenv`, `pyyaml`
+- **API:** `FastAPI`, `uvicorn`
+- **Package management:** Poetry / pip / uv
 
 ---
 
 ## 🗺️ Roadmap
 
-- [x] **Phase 0:** Project setup, architecture design, and tech selection.
-- [x] **Phase 1:** Implement basic price fetching from exchanges.
-- [x] **Phase 2:** Build spread calculation logic and CLI output.
-- [ ] **Phase 3:** Develop a REST API and a minimal web dashboard.
-- [ ] **Phase 5:** Introduce alerts (Telegram/email) and advanced analytics.
-- [ ] **Phase 6:** Add support for more exchanges (OKX, KuCoin, etc.)
-- [ ] **Phase 7:** Polish, testing, and documentation.
+- [x] Phase 0 – Project setup & architecture.
+- [x] Phase 1 – WebSocket ticker fetching (Binance, Bybit, Kraken).
+- [x] Phase 2 – Spread analysis & CLI output.
+- [x] Phase 3 – Order‑book depth & VWAP.
+- [x] Phase 4 – Triangular arbitrage detection.
+- [x] Phase 5 – Interactive CLI & runtime control.
+- [x] Phase 6 – FastAPI + WebSocket API.
+- [x] Phase 7 – Additional exchanges (OKX, KuCoin, Gate.io, Huobi, Bitget, MEXC).
+- [ ] Phase 8 – Dashboard (Streamlit / Gradio) and alert system (Telegram/Email).
+- [ ] Phase 9 – Advanced analytics (correlation, volatility, etc.).
 
 ---
 
@@ -63,7 +68,7 @@ The project focuses on:
 ### Prerequisites
 
 - Python 3.12+
-- Poetry (recommended) or pip
+- Poetry (recommended) or pip / uv
 
 ### Installation
 
@@ -77,80 +82,167 @@ poetry install
 
 # Or with pip
 pip install -r requirements.txt
+
+# Or with uv
+uv pip install -r requirements.txt
 ```
 
-### Configuration
+### Configuration (optional)
 
-Create a `.env` file in the project root (optional):
+Create a `.env` file:
 
 ```env
-EXCHANGES=binance,bybit,kraken
-SYMBOLS=BTC/USDT,ETH/USDT
+EXCHANGES=binance,bybit,kraken,okx
+SYMBOLS=BTC/USDT,ETH/USDT,SOL/USDT
 LOG_LEVEL=INFO
+MODE=ticker
+ORDERBOOK_DEPTH=10
+ORDERBOOK_AMOUNT=1000
+STATS_WINDOW=0
+DISCOVER=false
+INTERACTIVE=false
+TRIANGULAR=false
 ```
 
-### Usage
+Or use a `config.yaml` file (see example below).
+
+---
+
+## 📖 Usage Examples
+
+### Basic ticker monitoring
 
 ```bash
-# Single run with default settings
-python main.py
-
-# Continuous monitoring every 5 seconds
-python main.py -i 5
-
-# Custom exchanges and symbols
-python main.py -e binance,kraken -s BTC/USDT,SOL/USDT
-
-# Filter by minimum spread and show top 3 opportunities
-python main.py --min-spread 0.5 --top 3
-
-# Show all available options
-python main.py --help
+python main.py -e binance,bybit,kraken -s BTC/USDT,ETH/USDT -i 5
 ```
 
-### Example Output
+### Order‑book mode with VWAP
+
+```bash
+python main.py -e binance,bybit,kraken,okx --mode orderbook --orderbook-depth 15 --orderbook-amount 2000 -i 5
+```
+
+### Automatic symbol discovery + arbitrage summary
+
+```bash
+python main.py --discover -e binance,bybit,kraken,okx,kucoin -i 10
+```
+
+### Triangular arbitrage detection
+
+```bash
+python main.py --triangular --triangular-min-profit 0.3 -e binance,bybit,okx -i 10
+```
+
+### With spread statistics (last 30 updates)
+
+```bash
+python main.py --stats-window 30 --discover -e binance,bybit,kraken -i 5
+```
+
+### Interactive mode (runtime control)
+
+```bash
+python main.py --interactive -i 5 -e binance,bybit,kraken
+```
+
+While running, type commands like:
+- `add okx`
+- `remove kraken`
+- `add_symbol SOL/USDT`
+- `mode orderbook`
+- `list`
+- `quit`
+
+### With REST API + WebSocket streaming
+
+```bash
+python main.py --api-port 8000 --discover -i 5 -e binance,bybit,kraken
+```
+
+Then connect to:
+- `http://localhost:8000/spreads?min_spread=0.5&top=3`
+- `http://localhost:8000/triangular?min_profit=0.2`
+- WebSocket `ws://localhost:8000/ws/spreads` (spread updates)
+- WebSocket `ws://localhost:8000/ws/arbitrage` (buy/sell summary)
+- WebSocket `ws://localhost:8000/ws/triangular` (triangular opportunities)
+
+---
+
+## 📊 Example Outputs
+
+### Spread analysis (ticker mode)
 
 ```
-📊 Spread Analysis for BTC/USDT:
+📊 Spread Analysis for BTC/USDT
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Exchange ┃         Bid  ┃      Ask ┃      Mid ┃  Spread % ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━┩
+│ binance  │     64686.00 │ 64686.00 │ 64686.00 │    +0.00% │
+│ bybit    │     64683.60 │ 64683.60 │ 64683.60 │    -0.00% │
+│ kraken   │     64680.50 │ 64680.50 │ 64680.50 │    -0.01% │
+└──────────┴──────────────┴──────────┴──────────┴───────────┘
+Best mid price: binance at 64686.00 USDT
+```
 
-Exchange     Price (USDT)    Spread (%)
-----------------------------------------
-binance      64686.00           +0.00%
-bybit        64683.60           -0.00%
-kraken       64680.50           -0.01%
-----------------------------------------
-Best price: binance at 64686.00 USDT
+### Arbitrage summary (with `--discover`)
 
-📊 Spread Analysis for ETH/USDT:
+```
+🔄 Arbitrage Opportunities (Buy Low / Sell High)
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Symbol     ┃ Buy (min price)      ┃ Sell (max price)     ┃ Spread %  ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ BTC/USDT   │ bybit @ 64683.60     │ binance @ 64686.00   │  +0.0037% │
+│ ETH/USDT   │ kraken @ 3456.78     │ binance @ 3457.90    │  +0.0324% │
+└────────────┴──────────────────────┴──────────────────────┴───────────┘
+```
 
-Exchange     Price (USDT)    Spread (%)
-----------------------------------------
-kraken       3456.78           +0.00%
-binance      3455.90           -0.03%
-bybit        3454.20           -0.07%
-----------------------------------------
-Best price: kraken at 3456.78 USDT
+### Triangular arbitrage (with `--triangular`)
+
+```
+🔺 Triangular Arbitrage Opportunities
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Exchange   ┃ Path                        ┃ Profit %  ┃ Price1    ┃ Price2    ┃ Price3    ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ binance    │ USDT → BTC → ETH → USDT    │  +0.12%   │ 64686.00  │ 0.0534    │ 3457.90   │
+│ bybit      │ USDT → BTC → ETH → USDT    │  +0.09%   │ 64683.60  │ 0.0533    │ 3456.78   │
+└────────────┴────────────────────────────┴───────────┴───────────┴───────────┴───────────┘
+```
+
+### Order‑book mode with VWAP (columns show VWAP Bid/Ask)
+
+```
+📊 Spread Analysis for BTC/USDT
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Exchange ┃    VWAP Bid  ┃   VWAP Ask   ┃      Mid ┃  Spread % ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━┩
+│ binance  │     64685.90 │     64686.10 │ 64686.00 │    +0.00% │
+│ bybit    │     64683.50 │     64683.70 │ 64683.60 │    -0.00% │
+└──────────┴──────────────┴──────────────┴──────────┴───────────┘
 ```
 
 ---
 
 ## 🔌 Adding New Exchanges
 
-To add support for a new exchange:
+To add a new exchange:
 
-1. Create a new class inheriting from `WebSocketPriceFetcher` in `websocket_fetcher.py`.
-2. Implement the required methods:
-   - `get_ws_url()` – WebSocket endpoint URL
-   - `get_subscription_message()` – subscription payload
-   - `parse_price()` – extract price from incoming messages
-3. Register the class in `EXCHANGE_FETCHER_MAP` in `fetcher.py`.
+1. **Ticker support** – create a class inheriting from `WebSocketPriceFetcher` in `websocket_fetcher.py` and implement `get_ws_url()`, `get_subscription_message()`, `parse_price()`. Then add it to `TICKER_MAP` in `fetcher.py`.
 
-Example for OKX:
+2. **Order‑book support** – create a class inheriting from `OrderBookFetcher` and implement the same methods, plus `parse_orderbook()`. Add it to `ORDERBOOK_MAP`.
+
+3. **Symbol discovery** – add an async function in `symbol_fetcher.py` that returns a list of USDT pairs, and add it to `SYMBOL_FETCHERS` dictionary.
+
+Example for a new exchange:
 ```python
-class OkxWebSocketFetcher(WebSocketPriceFetcher):
+class NewExchangeFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
-        return "wss://ws.okx.com:8443/ws/v5/public"
-    # ... implement other methods
+        return "wss://api.newexchange.com/ws"
+    def get_subscription_message(self, symbols):
+        return {"subscribe": symbols}
+    def parse_price(self, data):
+        # parse and return {symbol: price}
+        return {}
 ```
 
 ---
@@ -159,18 +251,24 @@ class OkxWebSocketFetcher(WebSocketPriceFetcher):
 
 ```
 CryptoSpreadTracker/
-├── main.py              # Entry point
+├── main.py                  # Entry point with argument parsing
+├── config.yaml              # Example YAML configuration
+├── .env                     # Environment variables
+├── pyproject.toml           # Project metadata and dependencies
+├── README.md                # This file
+├── LICENSE                  # MIT License
 ├── src/
-│   ├── cli.py           # CLI orchestration
-│   ├── config.py        # Configuration management
-│   ├── fetcher.py       # Exchange data fetching
-│   ├── analyzer.py      # Spread calculation logic
-│   ├── display.py       # Output formatting
-│   └── websocket_fetcher.py  # WebSocket clients for exchanges
-├── .env.example         # Example environment variables
-├── pyproject.toml       # Project configuration
-├── README.md            # This file
-└── LICENSE              # MIT License
+│   ├── cli.py               # CLI orchestration and main loop
+│   ├── config.py            # Configuration loader (calls config_loader)
+│   ├── config_loader.py     # Merges CLI, .env, and YAML
+│   ├── fetcher.py           # PriceFetcherManager and exchange maps
+│   ├── websocket_fetcher.py # All WebSocket client classes (ticker + orderbook)
+│   ├── symbol_fetcher.py    # REST API functions for symbol discovery
+│   ├── analyzer.py          # Spread and triangular logic
+│   ├── display.py           # Rich table printing (spreads, summary, triangular)
+│   ├── stats.py             # SpreadStats class for sliding window statistics
+│   └── api.py               # FastAPI app with REST and WebSocket endpoints
+└── tests/                   # (future)
 ```
 
 ---
