@@ -6,7 +6,7 @@ from .stats import SpreadStats
 console = Console()
 
 def print_spreads(
-    analysis: Dict[str, List[Tuple[str, float, float, float, float]]],
+    analysis: Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float]]]],
     min_spread: float = 0.0,
     top: int = None,
     stats: Optional[SpreadStats] = None
@@ -25,10 +25,16 @@ def print_spreads(
         if top and top > 0:
             filtered = filtered[:top]
 
+        has_vwap = any(e[5] is not None or e[6] is not None for e in filtered)
+
         table = Table(title=f"📊 Spread Analysis for {symbol}", show_header=True, header_style="bold magenta")
         table.add_column("Exchange", style="cyan", no_wrap=True)
-        table.add_column("Bid", justify="right", style="green")
-        table.add_column("Ask", justify="right", style="red")
+        if has_vwap:
+            table.add_column("VWAP Bid", justify="right", style="green")
+            table.add_column("VWAP Ask", justify="right", style="red")
+        else:
+            table.add_column("Bid", justify="right", style="green")
+            table.add_column("Ask", justify="right", style="red")
         table.add_column("Mid", justify="right", style="yellow")
         table.add_column("Spread %", justify="right")
         if stats:
@@ -37,14 +43,21 @@ def print_spreads(
             table.add_column("Max %", justify="right")
             table.add_column("Std %", justify="right")
 
-        for exchange, mid, bid, ask, spread in filtered:
+        for entry in filtered:
+            exchange, mid, bid, ask, spread, vwap_bid, vwap_ask = entry
             color = "green" if spread >= 0 else "red"
             if abs(spread) > 1.0:
                 color = "bright_cyan"
+            if has_vwap:
+                bid_display = f"{vwap_bid:.2f}" if vwap_bid is not None else "N/A"
+                ask_display = f"{vwap_ask:.2f}" if vwap_ask is not None else "N/A"
+            else:
+                bid_display = f"{bid:.2f}" if bid is not None else "N/A"
+                ask_display = f"{ask:.2f}" if ask is not None else "N/A"
             row = [
                 exchange,
-                f"{bid:.2f}" if bid is not None else "N/A",
-                f"{ask:.2f}" if ask is not None else "N/A",
+                bid_display,
+                ask_display,
                 f"{mid:.2f}" if mid is not None else "N/A",
                 f"[{color}]{spread:>+8.2f}%[/{color}]"
             ]
@@ -59,14 +72,14 @@ def print_spreads(
                     row.extend(["", "", "", ""])
             table.add_row(*row)
 
-        best_ex, best_mid, _, _, _ = filtered[0]
+        best_ex, best_mid, _, _, _, _, _ = filtered[0]
         table.add_section()
         table.add_row("", "", "", "", "")
         table.add_row("Best mid price:", f"{best_ex} at {best_mid:.2f} USDT", "", "", "")
         console.print(table)
         console.print()
 
-def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, float, float]]]):
+def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float]]]]):
     if not analysis:
         console.print("❌ No data for arbitrage summary.")
         return

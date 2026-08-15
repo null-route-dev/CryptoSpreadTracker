@@ -54,7 +54,7 @@ async def run_once_with_manager(manager, config):
             stats = SpreadStats(config["stats_window"])
             for symbol, entries in analysis.items():
                 for entry in entries:
-                    exchange, mid, bid, ask, spread = entry
+                    exchange, mid, bid, ask, spread, vwap_bid, vwap_ask = entry
                     stats.update(symbol, exchange, spread)
         else:
             stats = None

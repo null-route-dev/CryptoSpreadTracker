@@ -137,16 +137,20 @@ async def get_spreads(
 
     result = {}
     for symbol, entries in analysis.items():
-        filtered = [e for e in entries if abs(e[2]) >= min_spread]
+        filtered = [e for e in entries if abs(e[4]) >= min_spread]
         if not filtered:
             continue
-        filtered.sort(key=lambda x: abs(x[2]), reverse=True)
+        filtered.sort(key=lambda x: abs(x[4]), reverse=True)
         if top and top > 0:
             filtered = filtered[:top]
-        result[symbol] = [
-            {"exchange": ex, "price": price, "spread": spread}
-            for ex, price, spread in filtered
-        ]
+        result[symbol] = []
+        for ex, mid, bid, ask, spread, vwap_bid, vwap_ask in filtered:
+            entry = {"exchange": ex, "price": mid, "spread": spread}
+            if vwap_bid is not None:
+                entry["vwap_bid"] = vwap_bid
+            if vwap_ask is not None:
+                entry["vwap_ask"] = vwap_ask
+            result[symbol].append(entry)
 
     return result
 

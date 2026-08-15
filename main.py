@@ -74,6 +74,24 @@ def parse_args():
         default=0.0,
         help="Minimum profit percentage for triangular arbitrage (default: 0.0)"
     )
+    parser.add_argument(
+        "--mode",
+        default="ticker",
+        choices=["ticker", "orderbook"],
+        help="Data fetching mode: ticker or orderbook (default: ticker)"
+    )
+    parser.add_argument(
+        "--orderbook-depth",
+        type=int,
+        default=10,
+        help="Number of order book levels to fetch (default: 10)"
+    )
+    parser.add_argument(
+        "--orderbook-amount",
+        type=float,
+        default=1000.0,
+        help="Amount in USDT for VWAP calculation (default: 1000.0)"
+    )
     return parser.parse_args()
 
 async def run_api(manager, port: int):

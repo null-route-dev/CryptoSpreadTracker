@@ -6,7 +6,6 @@ from typing import Dict, List, Optional, Any, Tuple
 
 import websockets
 
-
 class WebSocketPriceFetcher(abc.ABC):
     def __init__(self, symbols: List[str]):
         self.symbols = symbols
@@ -83,13 +82,11 @@ class WebSocketPriceFetcher(abc.ABC):
         if self._websocket:
             await self._websocket.close()
 
-
 class OrderBookFetcher(abc.ABC):
     def __init__(self, symbols: List[str], depth: int = 10, amount: float = 1000.0):
         self.symbols = symbols
         self.depth = depth
         self.amount = amount
-        self._orderbooks: Dict[str, Dict[str, List[Tuple[float, float]]]] = {}
         self._bids: Dict[str, List[Tuple[float, float]]] = {}
         self._asks: Dict[str, List[Tuple[float, float]]] = {}
         self._websocket = None
@@ -108,6 +105,26 @@ class OrderBookFetcher(abc.ABC):
     @abc.abstractmethod
     def parse_orderbook(self, data: dict) -> Dict[str, Dict[str, List[Tuple[float, float]]]]:
         pass
+
+    @staticmethod
+    def calculate_vwap(levels: List[Tuple[float, float]], amount: float) -> Optional[float]:
+        if not levels or amount <= 0:
+            return None
+        total_cost = 0.0
+        total_volume = 0.0
+        for price, vol in levels:
+            if total_volume >= amount:
+                break
+            remaining = amount - total_volume
+            if vol >= remaining:
+                total_cost += price * remaining
+                total_volume += remaining
+            else:
+                total_cost += price * vol
+                total_volume += vol
+        if total_volume == 0:
+            return None
+        return total_cost / total_volume
 
     async def connect(self):
         self._stop = False
@@ -170,7 +187,6 @@ class OrderBookFetcher(abc.ABC):
         if self._websocket:
             await self._websocket.close()
 
-
 class BinanceOrderBookFetcher(OrderBookFetcher):
     def get_ws_url(self) -> str:
         streams = [f"{sym.replace('/', '').lower()}@depth20" for sym in self.symbols]
@@ -195,7 +211,6 @@ class BinanceOrderBookFetcher(OrderBookFetcher):
                 return {sym: {"bids": bids, "asks": asks}}
         return {}
 
-
 class BybitOrderBookFetcher(OrderBookFetcher):
     def get_ws_url(self) -> str:
         return "wss://stream.bybit.com/v5/public/spot"
@@ -216,7 +231,6 @@ class BybitOrderBookFetcher(OrderBookFetcher):
                         asks = [(float(a[0]), float(a[1])) for a in book.get("a", [])]
                         return {sym: {"bids": bids, "asks": asks}}
         return {}
-
 
 class KrakenOrderBookFetcher(OrderBookFetcher):
     def get_ws_url(self) -> str:
@@ -242,7 +256,6 @@ class KrakenOrderBookFetcher(OrderBookFetcher):
                     return {symbol: {"bids": bids, "asks": asks}}
         return {}
 
-
 class OkxOrderBookFetcher(OrderBookFetcher):
     def get_ws_url(self) -> str:
         return "wss://ws.okx.com:8443/ws/v5/public"
@@ -264,7 +277,6 @@ class OkxOrderBookFetcher(OrderBookFetcher):
                         asks = [(float(a[0]), float(a[1])) for a in item.get("asks", [])]
                         return {symbol: {"bids": bids, "asks": asks}}
         return {}
-
 
 class KuCoinOrderBookFetcher(OrderBookFetcher):
     def get_ws_url(self) -> str:
@@ -293,7 +305,6 @@ class KuCoinOrderBookFetcher(OrderBookFetcher):
                         return {sym: {"bids": bids, "asks": asks}}
         return {}
 
-
 class GateIoOrderBookFetcher(OrderBookFetcher):
     def get_ws_url(self) -> str:
         return "wss://ws.gate.io/v4/"
@@ -319,7 +330,6 @@ class GateIoOrderBookFetcher(OrderBookFetcher):
                             return {sym: {"bids": bids, "asks": asks}}
         return {}
 
-
 class BinanceWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
         streams = [f"{sym.replace('/', '').lower()}@ticker" for sym in self.symbols]
@@ -342,7 +352,6 @@ class BinanceWebSocketFetcher(WebSocketPriceFetcher):
                 return {sym: price}
         return {}
 
-
 class BybitWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
         return "wss://stream.bybit.com/v5/public/spot"
@@ -361,7 +370,6 @@ class BybitWebSocketFetcher(WebSocketPriceFetcher):
                         price = float(data["data"]["lastPrice"])
                         return {sym: price}
         return {}
-
 
 class KrakenWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
@@ -385,7 +393,6 @@ class KrakenWebSocketFetcher(WebSocketPriceFetcher):
                     return {symbol: price}
         return {}
 
-
 class OkxWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
         return "wss://ws.okx.com:8443/ws/v5/public"
@@ -406,7 +413,6 @@ class OkxWebSocketFetcher(WebSocketPriceFetcher):
                         price = float(item.get("last", 0))
                         return {symbol: price}
         return {}
-
 
 class KuCoinWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
@@ -433,7 +439,6 @@ class KuCoinWebSocketFetcher(WebSocketPriceFetcher):
                         return {sym: price}
         return {}
 
-
 class GateIoWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
         return "wss://ws.gate.io/v4/"
@@ -458,7 +463,6 @@ class GateIoWebSocketFetcher(WebSocketPriceFetcher):
                             return {sym: price}
         return {}
 
-
 class HuobiWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
         return "wss://api.huobi.pro/ws"
@@ -478,7 +482,6 @@ class HuobiWebSocketFetcher(WebSocketPriceFetcher):
                         return {sym: price}
         return {}
 
-
 class BitgetWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:
         return "wss://ws.bitget.com/mix/v1/stream"
@@ -497,7 +500,6 @@ class BitgetWebSocketFetcher(WebSocketPriceFetcher):
                             price = float(item.get("last", 0))
                             return {sym: price}
         return {}
-
 
 class MEXCWebSocketFetcher(WebSocketPriceFetcher):
     def get_ws_url(self) -> str:

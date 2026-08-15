@@ -86,7 +86,7 @@ class PriceFetcherManager:
             client = client_class(list(self.symbols), depth=self.depth, amount=self.amount)
             await client.connect()
             self.clients[ex_id] = client
-            self.prices[ex_id] = {sym: {"bid": None, "ask": None, "mid": None, "bids": [], "asks": []} for sym in self.symbols}
+            self.prices[ex_id] = {sym: {"bid": None, "ask": None, "mid": None, "bids": [], "asks": [], "vwap_bid": None, "vwap_ask": None} for sym in self.symbols}
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 
@@ -162,7 +162,17 @@ class PriceFetcherManager:
                         bid_price = bids[0][0] if bids else None
                         ask_price = asks[0][0] if asks else None
                         mid = (bid_price + ask_price) / 2 if (bid_price and ask_price) else None
-                        new_entry = {"bid": bid_price, "ask": ask_price, "mid": mid, "bids": bids, "asks": asks}
+                        vwap_bid = OrderBookFetcher.calculate_vwap(bids, self.amount) if bids else None
+                        vwap_ask = OrderBookFetcher.calculate_vwap(asks, self.amount) if asks else None
+                        new_entry = {
+                            "bid": bid_price,
+                            "ask": ask_price,
+                            "mid": mid,
+                            "bids": bids,
+                            "asks": asks,
+                            "vwap_bid": vwap_bid,
+                            "vwap_ask": vwap_ask
+                        }
                         if self.prices[ex_id].get(sym) != new_entry:
                             self.prices[ex_id][sym] = new_entry
                             changed = True
