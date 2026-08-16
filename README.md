@@ -1,19 +1,20 @@
 # CryptoSpreadTracker
 
-**CryptoSpreadTracker** is a real‑time cryptocurrency arbitrage monitoring system that detects and visualises price differences (spreads) across multiple exchanges, including order‑book depth, VWAP, triangular arbitrage, and a REST/WebSocket API.
+**CryptoSpreadTracker** is a real‑time cryptocurrency arbitrage monitoring system that detects and visualises price differences (spreads) across multiple exchanges, including order‑book depth, VWAP, triangular arbitrage, perpetual futures, and a REST/WebSocket API.
 
-> ✅ **Project Status:** Feature‑rich – WebSocket streaming, order‑book analysis, triangular arbitrage, interactive CLI, and full API are implemented.
+> ✅ **Project Status:** Feature‑rich – WebSocket streaming, order‑book analysis, VWAP, triangular arbitrage, perpetual futures, interactive CLI, and full API are implemented.
 
 ---
 
 ## 🎯 About
 
-CryptoSpreadTracker connects to exchanges via WebSocket, fetches live prices (ticker or order‑book depth), and computes:
+CryptoSpreadTracker connects to exchanges via WebSocket, fetches live prices (ticker, order‑book depth, or perpetual futures), and computes:
 
 - **Spread analysis** – rank arbitrage opportunities between exchanges.
 - **VWAP** (Volume‑Weighted Average Price) for realistic execution prices.
 - **Triangular arbitrage** – detect profitable cycles within a single exchange.
 - **Cross‑exchange arbitrage summary** – find the best place to buy and sell each asset.
+- **Perpetual futures monitoring** – track futures prices and funding rates across Binance, Bybit, and OKX.
 - **Statistics** – track average, min, max, and standard deviation of spreads.
 
 All data is available through a **CLI** with rich tables, an **interactive mode** for runtime control, and a **FastAPI** server with WebSocket streams for external integration.
@@ -22,16 +23,17 @@ All data is available through a **CLI** with rich tables, an **interactive mode*
 
 ## ✨ Current Features
 
-- ✅ **Multi‑exchange WebSocket streaming** – Binance, Bybit, Kraken, OKX, KuCoin, Gate.io, Huobi, Bitget, MEXC.
+- ✅ **Multi‑exchange WebSocket streaming** – Binance, Bybit, Kraken, OKX, KuCoin, Gate.io, Huobi, Bitget, MEXC (spot) + Binance, Bybit, OKX (futures).
 - ✅ **Two data modes**: `ticker` (last price) and `orderbook` (depth levels).
 - ✅ **VWAP calculation** – average price for a given amount (USDT) using order‑book liquidity.
 - ✅ **Spread analysis** – rank opportunities across exchanges, filter by min spread and top N.
 - ✅ **Automatic symbol discovery** (`--discover`) – finds common trading pairs across all selected exchanges and shows a buy/sell summary.
 - ✅ **Triangular arbitrage** (`--triangular`) – detects profitable cycles within each exchange.
+- ✅ **Perpetual futures** (`--futures`) – monitors futures prices and funding rates (Binance, Bybit, OKX).
 - ✅ **Spread statistics** (`--stats-window`) – average, min, max, standard deviation over last N updates.
 - ✅ **Interactive CLI** (`--interactive`) – add/remove exchanges and symbols, switch modes on the fly.
-- ✅ **REST API** (`--api-port`) – endpoints for spreads, triangular opportunities, exchanges, symbols, health.
-- ✅ **WebSocket API** – real‑time streaming of spreads, arbitrage summary, and triangular opportunities.
+- ✅ **REST API** (`--api-port`) – endpoints for spreads, triangular opportunities, futures, exchanges, symbols, health.
+- ✅ **WebSocket API** – real‑time streaming of spreads, arbitrage summary, triangular opportunities, and futures data.
 - ✅ **Flexible configuration** – via CLI arguments, `.env` file, or YAML config (`config.yaml`).
 - ✅ **Logging** – console and file (with rotation) support.
 
@@ -58,8 +60,9 @@ All data is available through a **CLI** with rich tables, an **interactive mode*
 - [x] Phase 5 – Interactive CLI & runtime control.
 - [x] Phase 6 – FastAPI + WebSocket API.
 - [x] Phase 7 – Additional exchanges (OKX, KuCoin, Gate.io, Huobi, Bitget, MEXC).
-- [ ] Phase 8 – Dashboard (Streamlit / Gradio) and alert system (Telegram/Email).
-- [ ] Phase 9 – Advanced analytics (correlation, volatility, etc.).
+- [x] Phase 8 – Perpetual futures support with funding rates.
+- [ ] Phase 9 – Dashboard (Streamlit / Gradio) and alert system (Telegram/Email).
+- [ ] Phase 10 – Advanced analytics (correlation, volatility, etc.).
 
 ---
 
@@ -102,6 +105,7 @@ STATS_WINDOW=0
 DISCOVER=false
 INTERACTIVE=false
 TRIANGULAR=false
+FUTURES=false
 ```
 
 Or use a `config.yaml` file (see example below).
@@ -134,6 +138,12 @@ python main.py --discover -e binance,bybit,kraken,okx,kucoin -i 10
 python main.py --triangular --triangular-min-profit 0.3 -e binance,bybit,okx -i 10
 ```
 
+### Perpetual futures monitoring
+
+```bash
+python main.py --futures --discover -e binance,bybit,okx -i 5
+```
+
 ### With spread statistics (last 30 updates)
 
 ```bash
@@ -163,9 +173,11 @@ python main.py --api-port 8000 --discover -i 5 -e binance,bybit,kraken
 Then connect to:
 - `http://localhost:8000/spreads?min_spread=0.5&top=3`
 - `http://localhost:8000/triangular?min_profit=0.2`
+- `http://localhost:8000/futures` (if `--futures` enabled)
 - WebSocket `ws://localhost:8000/ws/spreads` (spread updates)
 - WebSocket `ws://localhost:8000/ws/arbitrage` (buy/sell summary)
 - WebSocket `ws://localhost:8000/ws/triangular` (triangular opportunities)
+- WebSocket `ws://localhost:8000/ws/futures` (futures data)
 
 ---
 
@@ -209,7 +221,7 @@ Best mid price: binance at 64686.00 USDT
 └────────────┴────────────────────────────┴───────────┴───────────┴───────────┴───────────┘
 ```
 
-### Order‑book mode with VWAP (columns show VWAP Bid/Ask)
+### Order‑book mode with VWAP
 
 ```
 📊 Spread Analysis for BTC/USDT
@@ -219,6 +231,22 @@ Best mid price: binance at 64686.00 USDT
 │ binance  │     64685.90 │     64686.10 │ 64686.00 │    +0.00% │
 │ bybit    │     64683.50 │     64683.70 │ 64683.60 │    -0.00% │
 └──────────┴──────────────┴──────────────┴──────────┴───────────┘
+```
+
+### Perpetual futures summary (with `--futures`)
+
+```
+🔮 Futures Arbitrage Summary
+┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Symbol   ┃ Exchange ┃ Price ┃  Spread % ┃ Funding % ┃
+┡━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ BTC/USDT │ binance  │ 65000 │    +0.00% │  +0.0100% │
+│ BTC/USDT │ bybit    │ 64980 │    -0.03% │  +0.0105% │
+│ BTC/USDT │ okx      │ 64990 │    -0.02% │  +0.0098% │
+│ ETH/USDT │ binance  │  3500 │    +0.00% │  +0.0200% │
+│ ETH/USDT │ bybit    │  3498 │    -0.06% │  +0.0205% │
+│ ETH/USDT │ okx      │  3499 │    -0.03% │  +0.0195% │
+└──────────┴──────────┴───────┴───────────┴───────────┘
 ```
 
 ---
@@ -232,6 +260,8 @@ To add a new exchange:
 2. **Order‑book support** – create a class inheriting from `OrderBookFetcher` and implement the same methods, plus `parse_orderbook()`. Add it to `ORDERBOOK_MAP`.
 
 3. **Symbol discovery** – add an async function in `symbol_fetcher.py` that returns a list of USDT pairs, and add it to `SYMBOL_FETCHERS` dictionary.
+
+4. **Futures support** – for perpetual futures, add ticker and funding rate classes (similar to `BinanceFuturesTickerFetcher`), and add symbol discovery to `FUTURES_SYMBOL_FETCHERS`.
 
 Example for a new exchange:
 ```python
@@ -262,10 +292,10 @@ CryptoSpreadTracker/
 │   ├── config.py            # Configuration loader (calls config_loader)
 │   ├── config_loader.py     # Merges CLI, .env, and YAML
 │   ├── fetcher.py           # PriceFetcherManager and exchange maps
-│   ├── websocket_fetcher.py # All WebSocket client classes (ticker + orderbook)
-│   ├── symbol_fetcher.py    # REST API functions for symbol discovery
+│   ├── websocket_fetcher.py # All WebSocket client classes (ticker, orderbook, futures)
+│   ├── symbol_fetcher.py    # REST API functions for symbol discovery (spot + futures)
 │   ├── analyzer.py          # Spread and triangular logic
-│   ├── display.py           # Rich table printing (spreads, summary, triangular)
+│   ├── display.py           # Rich table printing (spreads, summary, triangular, futures)
 │   ├── stats.py             # SpreadStats class for sliding window statistics
 │   └── api.py               # FastAPI app with REST and WebSocket endpoints
 └── tests/                   # (future)
