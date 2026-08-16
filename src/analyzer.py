@@ -5,6 +5,7 @@ def analyze_spreads(all_prices: Dict[str, Dict[str, Union[float, Dict]]]) -> Dic
     for symbol, exchange_data in all_prices.items():
         mids = {}
         vwap_data = {}
+        funding_data = {}
         for ex, data in exchange_data.items():
             if isinstance(data, dict) and "mid" in data:
                 if data["mid"] is not None:
@@ -15,9 +16,17 @@ def analyze_spreads(all_prices: Dict[str, Dict[str, Union[float, Dict]]]) -> Dic
                         "bid": data.get("bid"),
                         "ask": data.get("ask")
                     }
+                    funding_data[ex] = data.get("funding_rate")
+            elif isinstance(data, dict) and "price" in data:
+                price = data.get("price")
+                if price is not None:
+                    mids[ex] = price
+                    funding_data[ex] = data.get("funding_rate")
+                    vwap_data[ex] = {"vwap_bid": None, "vwap_ask": None, "bid": price, "ask": price}
             elif isinstance(data, (int, float)):
                 mids[ex] = data
                 vwap_data[ex] = {"vwap_bid": None, "vwap_ask": None, "bid": data, "ask": data}
+                funding_data[ex] = None
         if not mids:
             continue
         sorted_exchanges = sorted(mids.items(), key=lambda x: x[1], reverse=True)
@@ -30,6 +39,7 @@ def analyze_spreads(all_prices: Dict[str, Dict[str, Union[float, Dict]]]) -> Dic
             vwap_ask = vwap_info.get("vwap_ask")
             bid = vwap_info.get("bid")
             ask = vwap_info.get("ask")
-            entries.append((ex, mid, bid, ask, spread, vwap_bid, vwap_ask))
+            funding = funding_data.get(ex)
+            entries.append((ex, mid, bid, ask, spread, vwap_bid, vwap_ask, funding))
         result[symbol] = entries
     return result

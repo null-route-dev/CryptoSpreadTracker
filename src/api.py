@@ -10,6 +10,7 @@ _manager: Optional[PriceFetcherManager] = None
 _websocket_clients: List[WebSocket] = []
 _arbitrage_clients: List[WebSocket] = []
 _triangular_clients: List[WebSocket] = []
+_futures_clients: List[WebSocket] = []
 
 def set_manager(manager: PriceFetcherManager):
     global _manager
@@ -17,6 +18,7 @@ def set_manager(manager: PriceFetcherManager):
     asyncio.create_task(_broadcast_updates())
     asyncio.create_task(_broadcast_arbitrage())
     asyncio.create_task(_broadcast_triangular())
+    asyncio.create_task(_broadcast_futures())
 
 async def _broadcast_updates():
     if not _manager:
@@ -99,6 +101,27 @@ async def _broadcast_triangular():
         except Exception:
             continue
 
+async def _broadcast_futures():
+    if not _manager or not _manager.futures:
+        return
+    while True:
+        try:
+            raw_prices = await _manager.update_queue.get()
+            prices_by_symbol = {}
+            for ex_id, ex_prices in raw_prices.items():
+                for sym, data in ex_prices.items():
+                    if data is not None and isinstance(data, dict) and "price" in data:
+                        prices_by_symbol.setdefault(sym, {})[ex_id] = data
+            analysis = analyze_spreads(prices_by_symbol)
+            message = {"type": "futures", "data": analysis}
+            for ws in _futures_clients[:]:
+                try:
+                    await ws.send_json(message)
+                except:
+                    pass
+        except Exception:
+            continue
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -144,12 +167,14 @@ async def get_spreads(
         if top and top > 0:
             filtered = filtered[:top]
         result[symbol] = []
-        for ex, mid, bid, ask, spread, vwap_bid, vwap_ask in filtered:
+        for ex, mid, bid, ask, spread, vwap_bid, vwap_ask, funding in filtered:
             entry = {"exchange": ex, "price": mid, "spread": spread}
             if vwap_bid is not None:
                 entry["vwap_bid"] = vwap_bid
             if vwap_ask is not None:
                 entry["vwap_ask"] = vwap_ask
+            if funding is not None:
+                entry["funding_rate"] = funding
             result[symbol].append(entry)
 
     return result
@@ -168,6 +193,30 @@ async def get_triangular(
                 prices_by_symbol.setdefault(sym, {})[ex_id] = price
     opportunities = discover_triangular_opportunities(prices_by_symbol, min_profit)
     return opportunities
+
+@app.get("/futures")
+async def get_futures():
+    if not _manager or not _manager.futures:
+        return {"error": "Futures mode not enabled"}
+    all_prices = _manager.get_all_prices()
+    prices_by_symbol = {}
+    for ex_id, ex_prices in all_prices.items():
+        for sym, data in ex_prices.items():
+            if data is not None and isinstance(data, dict) and "price" in data:
+                prices_by_symbol.setdefault(sym, {})[ex_id] = data
+    analysis = analyze_spreads(prices_by_symbol)
+    result = {}
+    for symbol, entries in analysis.items():
+        result[symbol] = [
+            {
+                "exchange": ex,
+                "price": mid,
+                "spread": spread,
+                "funding_rate": funding
+            }
+            for ex, mid, _, _, spread, _, _, funding in entries
+        ]
+    return result
 
 @app.websocket("/ws/spreads")
 async def websocket_spreads(websocket: WebSocket):
@@ -207,3 +256,16 @@ async def websocket_triangular(websocket: WebSocket):
     except Exception:
         if websocket in _triangular_clients:
             _triangular_clients.remove(websocket)
+
+@app.websocket("/ws/futures")
+async def websocket_futures(websocket: WebSocket):
+    await websocket.accept()
+    _futures_clients.append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        _futures_clients.remove(websocket)
+    except Exception:
+        if websocket in _futures_clients:
+            _futures_clients.remove(websocket)

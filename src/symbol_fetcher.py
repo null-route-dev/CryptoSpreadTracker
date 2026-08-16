@@ -77,6 +77,34 @@ async def fetch_mexc_symbols() -> List[str]:
         data = resp.json()
         return [normalize_symbol(s["symbol"]) for s in data["symbols"] if s["quoteAsset"] == "USDT" and s["status"] == "TRADING"]
 
+async def fetch_binance_futures_symbols() -> List[str]:
+    async with httpx.AsyncClient() as client:
+        resp = await client.get("https://fapi.binance.com/fapi/v1/exchangeInfo")
+        data = resp.json()
+        return [normalize_symbol(s["symbol"]) for s in data["symbols"] if s["quoteAsset"] == "USDT" and s["status"] == "TRADING"]
+
+async def fetch_bybit_futures_symbols() -> List[str]:
+    async with httpx.AsyncClient() as client:
+        resp = await client.get("https://api.bybit.com/v5/market/instruments-info?category=linear")
+        data = resp.json()
+        if data["retCode"] == 0:
+            return [normalize_symbol(s["symbol"]) for s in data["result"]["list"] if s["quoteCoin"] == "USDT" and s["status"] == "Trading"]
+        return []
+
+async def fetch_okx_futures_symbols() -> List[str]:
+    async with httpx.AsyncClient() as client:
+        resp = await client.get("https://www.okx.com/api/v5/market/tickers?instType=SWAP")
+        data = resp.json()
+        if data["code"] == "0":
+            result = []
+            for s in data["data"]:
+                inst = s["instId"]
+                if inst.endswith("-USDT-SWAP"):
+                    sym = inst.replace("-SWAP", "")
+                    result.append(normalize_symbol(sym))
+            return result
+        return []
+
 SYMBOL_FETCHERS = {
     "binance": fetch_binance_symbols,
     "bybit": fetch_bybit_symbols,
@@ -87,4 +115,10 @@ SYMBOL_FETCHERS = {
     "huobi": fetch_huobi_symbols,
     "bitget": fetch_bitget_symbols,
     "mexc": fetch_mexc_symbols,
+}
+
+FUTURES_SYMBOL_FETCHERS = {
+    "binance": fetch_binance_futures_symbols,
+    "bybit": fetch_bybit_futures_symbols,
+    "okx": fetch_okx_futures_symbols,
 }

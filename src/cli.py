@@ -4,9 +4,9 @@ from logging.handlers import RotatingFileHandler
 import os
 import sys
 from .config import get_config
-from .fetcher import PriceFetcherManager, discover_common_symbols, discover_triangular_opportunities
+from .fetcher import PriceFetcherManager, discover_common_symbols, discover_common_futures_symbols, discover_triangular_opportunities
 from .analyzer import analyze_spreads
-from .display import print_spreads, print_arbitrage_summary, print_triangular_summary
+from .display import print_spreads, print_arbitrage_summary, print_triangular_summary, print_futures_summary
 from .stats import SpreadStats
 
 logger = logging.getLogger(__name__)
@@ -48,13 +48,16 @@ async def run_once_with_manager(manager, config):
             min_profit=config.get("triangular_min_profit", 0.0)
         )
         print_triangular_summary(opportunities, config.get("triangular_min_profit", 0.0))
+    elif config.get("futures", False):
+        analysis = analyze_spreads(prices_by_symbol)
+        print_futures_summary(analysis)
     else:
         analysis = analyze_spreads(prices_by_symbol)
         if config.get("stats_window", 0) > 0:
             stats = SpreadStats(config["stats_window"])
             for symbol, entries in analysis.items():
                 for entry in entries:
-                    exchange, mid, bid, ask, spread, vwap_bid, vwap_ask = entry
+                    exchange, mid, bid, ask, spread, vwap_bid, vwap_ask, funding = entry
                     stats.update(symbol, exchange, spread)
         else:
             stats = None
@@ -126,10 +129,14 @@ async def interactive_loop(manager, config):
 async def run_monitor(config):
     exchange_ids = config["exchanges"]
     symbols = config["symbols"]
+    futures = config.get("futures", False)
 
-    if config.get("discover", False) or config.get("triangular", False):
-        logger.info("Discovering common symbols for %s mode...", "triangular" if config.get("triangular") else "discover")
-        symbols = await discover_common_symbols(exchange_ids, min_exchanges=2)
+    if config.get("discover", False) or config.get("triangular", False) or futures:
+        logger.info("Discovering common symbols for %s mode...", "futures" if futures else "discover/triangular")
+        if futures:
+            symbols = await discover_common_futures_symbols(exchange_ids, min_exchanges=2)
+        else:
+            symbols = await discover_common_symbols(exchange_ids, min_exchanges=2)
         if not symbols:
             logger.error("No common symbols found. Exiting.")
             return None
@@ -143,7 +150,8 @@ async def run_monitor(config):
         symbols,
         mode=config.get("mode", "ticker"),
         depth=config.get("orderbook_depth", 10),
-        amount=config.get("orderbook_amount", 1000.0)
+        amount=config.get("orderbook_amount", 1000.0),
+        futures=futures
     )
     await manager.start()
     return manager

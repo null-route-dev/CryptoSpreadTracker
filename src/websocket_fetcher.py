@@ -517,3 +517,157 @@ class MEXCWebSocketFetcher(WebSocketPriceFetcher):
                     price = float(data["d"]["c"])
                     return {sym: price}
         return {}
+
+class BinanceFuturesTickerFetcher(WebSocketPriceFetcher):
+    def get_ws_url(self) -> str:
+        streams = [f"{sym.replace('/', '').lower()}@ticker" for sym in self.symbols]
+        return f"wss://fstream.binance.com/stream?streams={'/'.join(streams)}"
+
+    def get_subscription_message(self, symbols: List[str]) -> Any:
+        return None
+
+    async def subscribe(self):
+        pass
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        stream = data.get("stream")
+        if not stream:
+            return {}
+        raw_symbol = stream.split("@")[0].upper()
+        for sym in self.symbols:
+            if sym.replace("/", "") == raw_symbol:
+                d = data.get("data", {})
+                price = float(d.get("c"))
+                return {sym: price}
+        return {}
+
+class BinanceFuturesFundingFetcher(WebSocketPriceFetcher):
+    def __init__(self, symbols: List[str]):
+        super().__init__(symbols)
+        self._funding_rates: Dict[str, Optional[float]] = {sym: None for sym in symbols}
+
+    def get_ws_url(self) -> str:
+        streams = [f"{sym.replace('/', '').lower()}@ticker" for sym in self.symbols]
+        return f"wss://fstream.binance.com/stream?streams={'/'.join(streams)}"
+
+    def get_subscription_message(self, symbols: List[str]) -> Any:
+        return None
+
+    async def subscribe(self):
+        pass
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        stream = data.get("stream")
+        if not stream:
+            return {}
+        raw_symbol = stream.split("@")[0].upper()
+        for sym in self.symbols:
+            if sym.replace("/", "") == raw_symbol:
+                d = data.get("data", {})
+                funding = float(d.get("f", 0))
+                self._funding_rates[sym] = funding
+                price = float(d.get("c"))
+                return {sym: price}
+        return {}
+
+    def get_funding_rates(self) -> Dict[str, Optional[float]]:
+        return self._funding_rates.copy()
+
+class BybitFuturesTickerFetcher(WebSocketPriceFetcher):
+    def get_ws_url(self) -> str:
+        return "wss://stream.bybit.com/v5/public/linear"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [f"tickers.{sym.replace('/', '')}" for sym in symbols]
+        return {"op": "subscribe", "args": args}
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if "topic" in data and "data" in data:
+            topic = data["topic"]
+            if topic.startswith("tickers."):
+                raw_symbol = topic.split(".")[1]
+                for sym in self.symbols:
+                    if sym.replace("/", "") == raw_symbol:
+                        price = float(data["data"]["lastPrice"])
+                        return {sym: price}
+        return {}
+
+class BybitFuturesFundingFetcher(WebSocketPriceFetcher):
+    def __init__(self, symbols: List[str]):
+        super().__init__(symbols)
+        self._funding_rates: Dict[str, Optional[float]] = {sym: None for sym in symbols}
+
+    def get_ws_url(self) -> str:
+        return "wss://stream.bybit.com/v5/public/linear"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [f"tickers.{sym.replace('/', '')}" for sym in symbols]
+        return {"op": "subscribe", "args": args}
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if "topic" in data and "data" in data:
+            topic = data["topic"]
+            if topic.startswith("tickers."):
+                raw_symbol = topic.split(".")[1]
+                for sym in self.symbols:
+                    if sym.replace("/", "") == raw_symbol:
+                        d = data["data"]
+                        funding = float(d.get("fundingRate", 0))
+                        self._funding_rates[sym] = funding
+                        price = float(d["lastPrice"])
+                        return {sym: price}
+        return {}
+
+    def get_funding_rates(self) -> Dict[str, Optional[float]]:
+        return self._funding_rates.copy()
+
+class OkxFuturesTickerFetcher(WebSocketPriceFetcher):
+    def get_ws_url(self) -> str:
+        return "wss://ws.okx.com:8443/ws/v5/public"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [{"channel": "tickers", "instId": sym.replace("/", "-") + "-SWAP"} for sym in symbols]
+        return {"op": "subscribe", "args": args}
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if data.get("event") == "subscribe":
+            return {}
+        if "data" in data and isinstance(data["data"], list):
+            for item in data["data"]:
+                inst_id = item.get("instId")
+                if inst_id and inst_id.endswith("-SWAP"):
+                    symbol = inst_id.replace("-SWAP", "").replace("-", "/")
+                    if symbol in self.symbols:
+                        price = float(item.get("last", 0))
+                        return {symbol: price}
+        return {}
+
+class OkxFuturesFundingFetcher(WebSocketPriceFetcher):
+    def __init__(self, symbols: List[str]):
+        super().__init__(symbols)
+        self._funding_rates: Dict[str, Optional[float]] = {sym: None for sym in symbols}
+
+    def get_ws_url(self) -> str:
+        return "wss://ws.okx.com:8443/ws/v5/public"
+
+    def get_subscription_message(self, symbols: List[str]) -> dict:
+        args = [{"channel": "tickers", "instId": sym.replace("/", "-") + "-SWAP"} for sym in symbols]
+        return {"op": "subscribe", "args": args}
+
+    def parse_price(self, data: dict) -> Dict[str, Optional[float]]:
+        if data.get("event") == "subscribe":
+            return {}
+        if "data" in data and isinstance(data["data"], list):
+            for item in data["data"]:
+                inst_id = item.get("instId")
+                if inst_id and inst_id.endswith("-SWAP"):
+                    symbol = inst_id.replace("-SWAP", "").replace("-", "/")
+                    if symbol in self.symbols:
+                        funding = float(item.get("fundingRate", 0))
+                        self._funding_rates[symbol] = funding
+                        price = float(item.get("last", 0))
+                        return {symbol: price}
+        return {}
+
+    def get_funding_rates(self) -> Dict[str, Optional[float]]:
+        return self._funding_rates.copy()

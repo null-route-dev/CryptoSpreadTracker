@@ -92,6 +92,11 @@ def parse_args():
         default=1000.0,
         help="Amount in USDT for VWAP calculation (default: 1000.0)"
     )
+    parser.add_argument(
+        "--futures",
+        action="store_true",
+        help="Enable futures (perpetual) mode for supported exchanges"
+    )
     return parser.parse_args()
 
 async def run_api(manager, port: int):

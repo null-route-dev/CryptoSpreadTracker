@@ -26,6 +26,7 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "interactive": False,
         "triangular": False,
         "triangular_min_profit": 0.0,
+        "futures": False,
     }
 
     if yaml_config:
@@ -119,5 +120,12 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["triangular_min_profit"] = float(os.getenv("TRIANGULAR_MIN_PROFIT"))
     elif "triangular_min_profit" in yaml_config:
         config["triangular_min_profit"] = yaml_config["triangular_min_profit"]
+
+    if cli_args.futures:
+        config["futures"] = True
+    elif os.getenv("FUTURES", "").lower() == "true":
+        config["futures"] = True
+    elif "futures" in yaml_config:
+        config["futures"] = yaml_config["futures"]
 
     return config
