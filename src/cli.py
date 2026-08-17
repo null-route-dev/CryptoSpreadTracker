@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 import os
 import sys
 from .config import get_config
-from .fetcher import PriceFetcherManager, discover_common_symbols, discover_common_futures_symbols, discover_triangular_opportunities
+from .fetchers import PriceFetcherManager, discover_common_symbols, discover_common_futures_symbols, discover_triangular_opportunities
 from .analyzer import analyze_spreads
 from .display import print_spreads, print_arbitrage_summary, print_triangular_summary, print_futures_summary
 from .stats import SpreadStats

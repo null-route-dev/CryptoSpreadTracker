@@ -1,67 +1,11 @@
 import asyncio
 import logging
-from typing import Dict, List, Optional, Union
-from .websocket_fetcher import (
-    BinanceWebSocketFetcher,
-    BybitWebSocketFetcher,
-    KrakenWebSocketFetcher,
-    OkxWebSocketFetcher,
-    KuCoinWebSocketFetcher,
-    GateIoWebSocketFetcher,
-    HuobiWebSocketFetcher,
-    BitgetWebSocketFetcher,
-    MEXCWebSocketFetcher,
-    BinanceOrderBookFetcher,
-    BybitOrderBookFetcher,
-    KrakenOrderBookFetcher,
-    OkxOrderBookFetcher,
-    KuCoinOrderBookFetcher,
-    GateIoOrderBookFetcher,
-    BinanceFuturesTickerFetcher,
-    BinanceFuturesFundingFetcher,
-    BybitFuturesTickerFetcher,
-    BybitFuturesFundingFetcher,
-    OkxFuturesTickerFetcher,
-    OkxFuturesFundingFetcher,
-    WebSocketPriceFetcher,
-    OrderBookFetcher,
-)
-from .symbol_fetcher import SYMBOL_FETCHERS, FUTURES_SYMBOL_FETCHERS
+from typing import Dict, List, Optional, Union, Set, Tuple
+from .exchanges import TICKER_MAP, ORDERBOOK_MAP, FUTURES_TICKER_MAP, FUTURES_FUNDING_MAP
+from .base import WebSocketPriceFetcher, OrderBookFetcher
+from .symbol_discovery import SYMBOL_FETCHERS, FUTURES_SYMBOL_FETCHERS
 
 logger = logging.getLogger(__name__)
-
-TICKER_MAP = {
-    "binance": BinanceWebSocketFetcher,
-    "bybit": BybitWebSocketFetcher,
-    "kraken": KrakenWebSocketFetcher,
-    "okx": OkxWebSocketFetcher,
-    "kucoin": KuCoinWebSocketFetcher,
-    "gateio": GateIoWebSocketFetcher,
-    "huobi": HuobiWebSocketFetcher,
-    "bitget": BitgetWebSocketFetcher,
-    "mexc": MEXCWebSocketFetcher,
-}
-
-ORDERBOOK_MAP = {
-    "binance": BinanceOrderBookFetcher,
-    "bybit": BybitOrderBookFetcher,
-    "kraken": KrakenOrderBookFetcher,
-    "okx": OkxOrderBookFetcher,
-    "kucoin": KuCoinOrderBookFetcher,
-    "gateio": GateIoOrderBookFetcher,
-}
-
-FUTURES_TICKER_MAP = {
-    "binance": BinanceFuturesTickerFetcher,
-    "bybit": BybitFuturesTickerFetcher,
-    "okx": OkxFuturesTickerFetcher,
-}
-
-FUTURES_FUNDING_MAP = {
-    "binance": BinanceFuturesFundingFetcher,
-    "bybit": BybitFuturesFundingFetcher,
-    "okx": OkxFuturesFundingFetcher,
-}
 
 class PriceFetcherManager:
     def __init__(self, exchange_ids: List[str], symbols: List[str], mode: str = "ticker", depth: int = 10, amount: float = 1000.0, futures: bool = False):
@@ -309,10 +253,7 @@ async def discover_common_futures_symbols(exchange_ids: List[str], min_exchanges
     logger.info("Found %d common futures symbols", len(result))
     return result
 
-def discover_triangular_opportunities(
-    prices_by_symbol: Dict[str, Dict[str, Union[float, Dict]]],
-    min_profit: float = 0.0
-) -> List[Dict]:
+def discover_triangular_opportunities(prices_by_symbol: Dict[str, Dict[str, Union[float, Dict]]], min_profit: float = 0.0) -> List[Dict]:
     opportunities = []
     for exchange, symbols_data in prices_by_symbol.items():
         available_symbols = set(symbols_data.keys())

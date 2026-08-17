@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from typing import List, Optional
 import asyncio
 from .analyzer import analyze_spreads
-from .fetcher import PriceFetcherManager, discover_triangular_opportunities
+from .fetchers import PriceFetcherManager, discover_triangular_opportunities
 
 app = FastAPI(title="CryptoSpreadTracker API")
 
