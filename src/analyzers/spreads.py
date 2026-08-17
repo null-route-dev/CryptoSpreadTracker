@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple, Union, Optional
 
-def analyze_spreads(all_prices: Dict[str, Dict[str, Union[float, Dict]]]) -> Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float]]]]:
+def analyze_spreads(all_prices: Dict[str, Dict[str, Union[float, Dict]]]) -> Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float], Optional[float]]]]:
     result = {}
     for symbol, exchange_data in all_prices.items():
         mids = {}

@@ -1,7 +1,7 @@
 from rich.console import Console
 from rich.table import Table
 from typing import Dict, List, Tuple, Optional
-from .stats import SpreadStats
+from src.analyzers import SpreadStats
 
 console = Console()
 
