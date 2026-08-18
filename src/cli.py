@@ -6,7 +6,7 @@ import sys
 from .config import get_config
 from src.fetchers.manager import PriceFetcherManager, discover_common_symbols, discover_common_futures_symbols
 from src.analyzers import analyze_spreads, discover_triangular_opportunities
-from .display import print_spreads, print_arbitrage_summary, print_triangular_summary, print_futures_summary
+from src.display import print_spreads, print_arbitrage_summary, print_triangular_summary, print_futures_summary
 from src.analyzers import SpreadStats
 
 logger = logging.getLogger(__name__)

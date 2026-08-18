@@ -1,33 +1,21 @@
 from rich.console import Console
 from rich.table import Table
-from typing import Dict, List, Tuple, Optional
-from src.analyzers import SpreadStats
 
 console = Console()
 
-def print_spreads(
-    analysis: Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float], Optional[float]]]],
-    min_spread: float = 0.0,
-    top: int = None,
-    stats: Optional[SpreadStats] = None
-):
+def print_spreads(analysis, min_spread, top, stats=None):
     if not analysis:
         console.print("\n❌ No prices fetched from any exchange.\n")
         return
-
     for symbol, entries in analysis.items():
         filtered = [e for e in entries if abs(e[4]) >= min_spread]
         if not filtered:
             continue
-
         filtered.sort(key=lambda x: abs(x[4]), reverse=True)
-
         if top and top > 0:
             filtered = filtered[:top]
-
         has_funding = any(e[7] is not None for e in filtered)
         has_vwap = any(e[5] is not None or e[6] is not None for e in filtered)
-
         table = Table(title=f"📊 Spread Analysis for {symbol}", show_header=True, header_style="bold magenta")
         table.add_column("Exchange", style="cyan", no_wrap=True)
         if has_vwap:
@@ -45,7 +33,6 @@ def print_spreads(
             table.add_column("Min %", justify="right")
             table.add_column("Max %", justify="right")
             table.add_column("Std %", justify="right")
-
         for entry in filtered:
             exchange, mid, bid, ask, spread, vwap_bid, vwap_ask, funding = entry
             color = "green" if spread >= 0 else "red"
@@ -76,7 +63,6 @@ def print_spreads(
                 else:
                     row.extend(["", "", "", ""])
             table.add_row(*row)
-
         best_ex, best_mid, _, _, _, _, _, _ = filtered[0]
         table.add_section()
         table.add_row("", "", "", "", "")
@@ -84,11 +70,10 @@ def print_spreads(
         console.print(table)
         console.print()
 
-def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float], Optional[float]]]]):
+def print_arbitrage_summary(analysis):
     if not analysis:
         console.print("❌ No data for arbitrage summary.")
         return
-
     rows = []
     for symbol, entries in analysis.items():
         if len(entries) < 2:
@@ -99,19 +84,15 @@ def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, fl
         max_exchange = next(e[0] for e in entries if e[1] == max_price)
         spread_pct = ((max_price - min_price) / min_price) * 100
         rows.append((symbol, min_exchange, max_exchange, spread_pct, min_price, max_price))
-
     if not rows:
         console.print("No arbitrage opportunities (need at least 2 exchanges per symbol).")
         return
-
     rows.sort(key=lambda x: x[3], reverse=True)
-
     table = Table(title="🔄 Arbitrage Opportunities (Buy Low / Sell High)", show_header=True, header_style="bold green")
     table.add_column("Symbol", style="cyan", no_wrap=True)
     table.add_column("Buy (min price)", justify="right")
     table.add_column("Sell (max price)", justify="right")
     table.add_column("Spread %", justify="right", style="bright_yellow")
-
     for symbol, buy_ex, sell_ex, spread, min_p, max_p in rows:
         table.add_row(
             symbol,
@@ -119,20 +100,17 @@ def print_arbitrage_summary(analysis: Dict[str, List[Tuple[str, float, float, fl
             f"{sell_ex} @ {max_p:.2f}",
             f"{spread:>+6.2f}%"
         )
-
     console.print(table)
     console.print()
 
-def print_triangular_summary(opportunities: List[Dict], min_profit: float = 0.0):
+def print_triangular_summary(opportunities, min_profit):
     if not opportunities:
         console.print("❌ No triangular arbitrage opportunities found.")
         return
-
     filtered = [o for o in opportunities if o["profit"] >= min_profit]
     if not filtered:
         console.print(f"❌ No triangular opportunities with profit >= {min_profit:.2f}%.")
         return
-
     table = Table(title="🔺 Triangular Arbitrage Opportunities", show_header=True, header_style="bold cyan")
     table.add_column("Exchange", style="cyan", no_wrap=True)
     table.add_column("Path", style="yellow")
@@ -140,7 +118,6 @@ def print_triangular_summary(opportunities: List[Dict], min_profit: float = 0.0)
     table.add_column("Price1", justify="right")
     table.add_column("Price2", justify="right")
     table.add_column("Price3", justify="right")
-
     for opp in filtered:
         table.add_row(
             opp["exchange"],
@@ -150,22 +127,19 @@ def print_triangular_summary(opportunities: List[Dict], min_profit: float = 0.0)
             f"{opp['price2']:.6f}",
             f"{opp['price3']:.6f}"
         )
-
     console.print(table)
     console.print()
 
-def print_futures_summary(analysis: Dict[str, List[Tuple[str, float, float, float, float, Optional[float], Optional[float], Optional[float]]]]):
+def print_futures_summary(analysis):
     if not analysis:
         console.print("❌ No futures data.")
         return
-
     table = Table(title="🔮 Futures Arbitrage Summary", show_header=True, header_style="bold cyan")
     table.add_column("Symbol", style="yellow", no_wrap=True)
     table.add_column("Exchange", style="cyan")
     table.add_column("Price", justify="right", style="green")
     table.add_column("Spread %", justify="right")
     table.add_column("Funding %", justify="right", style="magenta")
-
     for symbol, entries in analysis.items():
         for exchange, mid, bid, ask, spread, vwap_bid, vwap_ask, funding in entries:
             table.add_row(
@@ -175,6 +149,5 @@ def print_futures_summary(analysis: Dict[str, List[Tuple[str, float, float, floa
                 f"{spread:>+8.2f}%",
                 f"{funding:>+8.4f}%" if funding is not None else "N/A"
             )
-
     console.print(table)
     console.print()
