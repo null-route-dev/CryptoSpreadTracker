@@ -1,13 +1,12 @@
 import asyncio
+import sys
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-import sys
 from src.config import get_config
 from src.fetchers.manager import PriceFetcherManager, discover_common_symbols, discover_common_futures_symbols
-from src.analyzers import analyze_spreads, discover_triangular_opportunities
+from src.analyzers import analyze_spreads, discover_triangular_opportunities, SpreadStats
 from src.display import print_spreads, print_arbitrage_summary, print_triangular_summary, print_futures_summary
-from src.analyzers import SpreadStats
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,6 @@ def setup_logging(config):
     log_level = getattr(logging, config["log_level"], logging.INFO)
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     handlers = [logging.StreamHandler()]
-
     if config.get("log_file"):
         log_dir = os.path.dirname(config["log_file"])
         if log_dir:
@@ -27,12 +25,7 @@ def setup_logging(config):
         )
         file_handler.setFormatter(logging.Formatter(log_format))
         handlers.append(file_handler)
-
-    logging.basicConfig(
-        level=log_level,
-        format=log_format,
-        handlers=handlers
-    )
+    logging.basicConfig(level=log_level, format=log_format, handlers=handlers)
 
 async def run_once_with_manager(manager, config):
     all_prices = manager.get_all_prices()
@@ -43,24 +36,20 @@ async def run_once_with_manager(manager, config):
                 prices_by_symbol.setdefault(sym, {})[ex_id] = data
 
     if config.get("triangular", False):
-        opportunities = discover_triangular_opportunities(
-            prices_by_symbol,
-            min_profit=config.get("triangular_min_profit", 0.0)
-        )
+        opportunities = discover_triangular_opportunities(prices_by_symbol, config.get("triangular_min_profit", 0.0))
         print_triangular_summary(opportunities, config.get("triangular_min_profit", 0.0))
     elif config.get("futures", False):
         analysis = analyze_spreads(prices_by_symbol)
         print_futures_summary(analysis)
     else:
         analysis = analyze_spreads(prices_by_symbol)
+        stats = None
         if config.get("stats_window", 0) > 0:
             stats = SpreadStats(config["stats_window"])
             for symbol, entries in analysis.items():
                 for entry in entries:
                     exchange, mid, bid, ask, spread, vwap_bid, vwap_ask, funding = entry
                     stats.update(symbol, exchange, spread)
-        else:
-            stats = None
         if config.get("discover", False):
             print_arbitrage_summary(analysis)
         else:
@@ -68,15 +57,13 @@ async def run_once_with_manager(manager, config):
 
 async def interactive_loop(manager, config):
     loop = asyncio.get_event_loop()
-    reader = asyncio.StreamReader()
-    await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
     print("\nInteractive mode enabled. Type 'help' for commands.\n")
     while True:
         try:
-            line = await reader.readline()
+            line = await loop.run_in_executor(None, sys.stdin.readline)
             if not line:
                 break
-            cmd = line.decode().strip().lower()
+            cmd = line.strip().lower()
             if not cmd:
                 continue
             parts = cmd.split()
@@ -124,13 +111,12 @@ async def interactive_loop(manager, config):
             else:
                 print("Unknown command. Type 'help' for list.")
         except Exception as e:
-            logger.error("Interactive error: %s", e)
+            print(f"Error: {e}")
 
 async def run_monitor(config):
     exchange_ids = config["exchanges"]
     symbols = config["symbols"]
     futures = config.get("futures", False)
-
     if config.get("discover", False) or config.get("triangular", False) or futures:
         logger.info("Discovering common symbols for %s mode...", "futures" if futures else "discover/triangular")
         if futures:
@@ -144,7 +130,6 @@ async def run_monitor(config):
         if len(symbols) > 50:
             symbols = symbols[:50]
             logger.info("Limited to 50 symbols for performance.")
-
     manager = PriceFetcherManager(
         exchange_ids,
         symbols,

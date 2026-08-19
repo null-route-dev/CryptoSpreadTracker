@@ -1,0 +1,21 @@
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Real-time cryptocurrency arbitrage monitor (CLI)")
+    parser.add_argument("-e", "--exchanges", help="Comma-separated list of exchange IDs (e.g. binance,bybit,kraken)")
+    parser.add_argument("-s", "--symbols", help="Comma-separated trading pairs (e.g. BTC/USDT,ETH/USDT)")
+    parser.add_argument("-i", "--interval", type=float, help="Update interval in seconds (omit or 0 for single run)")
+    parser.add_argument("--min-spread", type=float, default=0.0, help="Minimum absolute spread percentage to display (default: 0.0)")
+    parser.add_argument("--top", type=int, default=None, help="Show only the top N opportunities by absolute spread (default: all)")
+    parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Logging level (default: INFO)")
+    parser.add_argument("--api-port", type=int, default=None, help="Start FastAPI server on specified port (e.g. 8000)")
+    parser.add_argument("--stats-window", type=int, default=0, help="Number of recent spreads to keep for statistics (0 to disable)")
+    parser.add_argument("--discover", action="store_true", help="Automatically discover common trading pairs across exchanges and show arbitrage summary")
+    parser.add_argument("--interactive", action="store_true", help="Enable interactive CLI mode (type commands during runtime)")
+    parser.add_argument("--triangular", action="store_true", help="Enable triangular arbitrage detection")
+    parser.add_argument("--triangular-min-profit", type=float, default=0.0, help="Minimum profit percentage for triangular arbitrage (default: 0.0)")
+    parser.add_argument("--mode", default="ticker", choices=["ticker", "orderbook"], help="Data fetching mode: ticker or orderbook (default: ticker)")
+    parser.add_argument("--orderbook-depth", type=int, default=10, help="Number of order book levels to fetch (default: 10)")
+    parser.add_argument("--orderbook-amount", type=float, default=1000.0, help="Amount in USDT for VWAP calculation (default: 1000.0)")
+    parser.add_argument("--futures", action="store_true", help="Enable futures (perpetual) mode for supported exchanges")
+    return parser.parse_args()
