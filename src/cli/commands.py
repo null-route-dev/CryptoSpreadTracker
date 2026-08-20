@@ -18,4 +18,5 @@ def parse_args():
     parser.add_argument("--orderbook-depth", type=int, default=10, help="Number of order book levels to fetch (default: 10)")
     parser.add_argument("--orderbook-amount", type=float, default=1000.0, help="Amount in USDT for VWAP calculation (default: 1000.0)")
     parser.add_argument("--futures", action="store_true", help="Enable futures (perpetual) mode for supported exchanges")
+    parser.add_argument("--fees", default="", help="Taker fees per exchange in percent. Example: binance:0.1,bybit:0.075")
     return parser.parse_args()

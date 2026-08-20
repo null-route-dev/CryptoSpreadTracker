@@ -1,15 +1,34 @@
 from fastapi import APIRouter, Query
 from typing import Optional
 from src.analyzers import analyze_spreads
-from src.api.broadcast import get_manager
+from src.api.broadcast import get_manager, get_fees
 
 router = APIRouter()
 
+def parse_fees(fees_str: str) -> dict:
+    result = {}
+    if not fees_str:
+        return result
+    for part in fees_str.split(","):
+        if ":" in part:
+            ex, fee = part.split(":", 1)
+            result[ex.strip()] = float(fee.strip())
+    return result
+
 @router.get("/spreads")
-async def get_spreads(min_spread: float = Query(0.0), top: Optional[int] = Query(None)):
+async def get_spreads(
+    min_spread: float = Query(0.0),
+    top: Optional[int] = Query(None),
+    include_fees: bool = Query(False),
+    fees: str = Query("")
+):
     manager = get_manager()
     if not manager:
         return {"error": "Manager not initialized"}
+    if fees:
+        fees_dict = parse_fees(fees)
+    else:
+        fees_dict = get_fees()
     all_prices = manager.get_all_prices()
     prices_by_symbol = {}
     for ex_id, ex_prices in all_prices.items():
@@ -34,5 +53,8 @@ async def get_spreads(min_spread: float = Query(0.0), top: Optional[int] = Query
                 entry["vwap_ask"] = vwap_ask
             if funding is not None:
                 entry["funding_rate"] = funding
+            if include_fees and fees_dict:
+                fee = fees_dict.get(ex, 0.0)
+                entry["net_spread"] = spread - fee
             result[symbol].append(entry)
     return result

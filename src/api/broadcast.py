@@ -1,4 +1,5 @@
 import asyncio
+from typing import Dict
 from src.analyzers import analyze_spreads, discover_triangular_opportunities
 
 _manager = None
@@ -8,6 +9,7 @@ _clients = {
     "triangular": [],
     "futures": []
 }
+_fees = {}
 
 def set_manager(manager):
     global _manager
@@ -18,6 +20,13 @@ def set_manager(manager):
         asyncio.create_task(_broadcast_loop("triangular", _broadcast_triangular))
         if manager.futures:
             asyncio.create_task(_broadcast_loop("futures", _broadcast_futures))
+
+def set_fees(fees: Dict[str, float]):
+    global _fees
+    _fees = fees
+
+def get_fees() -> Dict[str, float]:
+    return _fees
 
 def get_manager():
     return _manager
@@ -47,7 +56,24 @@ async def _broadcast_spreads(raw_prices, channel):
             if price is not None:
                 prices_by_symbol.setdefault(sym, {})[ex_id] = price
     analysis = analyze_spreads(prices_by_symbol)
-    message = {"type": "spreads", "data": analysis}
+    message = {"type": "spreads", "data": {}}
+    for symbol, entries in analysis.items():
+        filtered = entries
+        filtered.sort(key=lambda x: abs(x[4]), reverse=True)
+        result = []
+        for ex, mid, bid, ask, spread, vwap_bid, vwap_ask, funding in filtered:
+            entry = {"exchange": ex, "price": mid, "spread": spread}
+            if vwap_bid is not None:
+                entry["vwap_bid"] = vwap_bid
+            if vwap_ask is not None:
+                entry["vwap_ask"] = vwap_ask
+            if funding is not None:
+                entry["funding_rate"] = funding
+            if _fees:
+                fee = _fees.get(ex, 0.0)
+                entry["net_spread"] = spread - fee
+            result.append(entry)
+        message["data"][symbol] = result
     for ws in _clients[channel][:]:
         try:
             await ws.send_json(message)
@@ -70,13 +96,17 @@ async def _broadcast_arbitrage(raw_prices, channel):
         min_exchange = next(e[0] for e in entries if e[1] == min_price)
         max_exchange = next(e[0] for e in entries if e[1] == max_price)
         spread_pct = ((max_price - min_price) / min_price) * 100
+        fee_buy = _fees.get(min_exchange, 0.0)
+        fee_sell = _fees.get(max_exchange, 0.0)
+        net_spread = spread_pct - fee_buy - fee_sell
         rows.append({
             "symbol": symbol,
             "buy_exchange": min_exchange,
             "buy_price": min_price,
             "sell_exchange": max_exchange,
             "sell_price": max_price,
-            "spread_pct": spread_pct
+            "spread_pct": spread_pct,
+            "net_spread_pct": net_spread if _fees else None
         })
     rows.sort(key=lambda x: x["spread_pct"], reverse=True)
     message = {"type": "arbitrage", "data": rows}

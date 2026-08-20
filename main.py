@@ -1,12 +1,15 @@
 import asyncio
 import signal
 import uvicorn
-from src.cli import parse_args, run_cli_loop, run_monitor, setup_logging
+from src.cli.commands import parse_args
+from src.cli.runner import run_cli_loop, run_monitor, setup_logging
 from src.config import get_config
 from src.api import app, set_manager
+from src.api.broadcast import set_fees
 
-async def run_api(manager, port: int):
+async def run_api(manager, port: int, fees: dict):
     set_manager(manager)
+    set_fees(fees)
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
@@ -17,8 +20,9 @@ async def main_async(args):
     manager = await run_monitor(config)
     if manager is None:
         return
+    fees = config.get("fees", {})
     if args.api_port:
-        api_task = asyncio.create_task(run_api(manager, args.api_port))
+        api_task = asyncio.create_task(run_api(manager, args.api_port, fees))
         cli_task = asyncio.create_task(run_cli_loop(manager, config))
         await asyncio.gather(api_task, cli_task)
     else:

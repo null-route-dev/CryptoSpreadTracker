@@ -35,8 +35,9 @@ async def run_once_with_manager(manager, config):
             if data is not None:
                 prices_by_symbol.setdefault(sym, {})[ex_id] = data
 
+    fees = config.get("fees", {})
     if config.get("triangular", False):
-        opportunities = discover_triangular_opportunities(prices_by_symbol, config.get("triangular_min_profit", 0.0))
+        opportunities = discover_triangular_opportunities(prices_by_symbol, config.get("triangular_min_profit", 0.0), fees)
         print_triangular_summary(opportunities, config.get("triangular_min_profit", 0.0))
     elif config.get("futures", False):
         analysis = analyze_spreads(prices_by_symbol)
@@ -51,9 +52,9 @@ async def run_once_with_manager(manager, config):
                     exchange, mid, bid, ask, spread, vwap_bid, vwap_ask, funding = entry
                     stats.update(symbol, exchange, spread)
         if config.get("discover", False):
-            print_arbitrage_summary(analysis)
+            print_arbitrage_summary(analysis, fees)
         else:
-            print_spreads(analysis, config["min_spread"], config["top"], stats)
+            print_spreads(analysis, config["min_spread"], config["top"], stats, fees)
 
 async def interactive_loop(manager, config):
     loop = asyncio.get_event_loop()

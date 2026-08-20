@@ -3,7 +3,9 @@ from rich.table import Table
 
 console = Console()
 
-def print_spreads(analysis, min_spread, top, stats=None):
+def print_spreads(analysis, min_spread, top, stats=None, fees=None):
+    if fees is None:
+        fees = {}
     if not analysis:
         console.print("\n❌ No prices fetched from any exchange.\n")
         return
@@ -16,6 +18,7 @@ def print_spreads(analysis, min_spread, top, stats=None):
             filtered = filtered[:top]
         has_funding = any(e[7] is not None for e in filtered)
         has_vwap = any(e[5] is not None or e[6] is not None for e in filtered)
+        has_fees = bool(fees)
         table = Table(title=f"📊 Spread Analysis for {symbol}", show_header=True, header_style="bold magenta")
         table.add_column("Exchange", style="cyan", no_wrap=True)
         if has_vwap:
@@ -26,6 +29,8 @@ def print_spreads(analysis, min_spread, top, stats=None):
             table.add_column("Ask", justify="right", style="red")
         table.add_column("Mid", justify="right", style="yellow")
         table.add_column("Spread %", justify="right")
+        if has_fees:
+            table.add_column("Net Spread %", justify="right", style="bright_green")
         if has_funding:
             table.add_column("Funding %", justify="right", style="magenta")
         if stats:
@@ -51,6 +56,10 @@ def print_spreads(analysis, min_spread, top, stats=None):
                 f"{mid:.2f}" if mid is not None else "N/A",
                 f"[{color}]{spread:>+8.2f}%[/{color}]"
             ]
+            if has_fees:
+                fee = fees.get(exchange, 0.0)
+                net_spread = spread - fee
+                row.append(f"{net_spread:>+8.2f}%")
             if has_funding:
                 row.append(f"{funding:>+8.4f}%" if funding is not None else "N/A")
             if stats:
@@ -70,7 +79,9 @@ def print_spreads(analysis, min_spread, top, stats=None):
         console.print(table)
         console.print()
 
-def print_arbitrage_summary(analysis):
+def print_arbitrage_summary(analysis, fees=None):
+    if fees is None:
+        fees = {}
     if not analysis:
         console.print("❌ No data for arbitrage summary.")
         return
@@ -83,7 +94,10 @@ def print_arbitrage_summary(analysis):
         min_exchange = next(e[0] for e in entries if e[1] == min_price)
         max_exchange = next(e[0] for e in entries if e[1] == max_price)
         spread_pct = ((max_price - min_price) / min_price) * 100
-        rows.append((symbol, min_exchange, max_exchange, spread_pct, min_price, max_price))
+        fee_buy = fees.get(min_exchange, 0.0)
+        fee_sell = fees.get(max_exchange, 0.0)
+        net_spread = spread_pct - fee_buy - fee_sell
+        rows.append((symbol, min_exchange, max_exchange, spread_pct, net_spread, min_price, max_price))
     if not rows:
         console.print("No arbitrage opportunities (need at least 2 exchanges per symbol).")
         return
@@ -93,13 +107,18 @@ def print_arbitrage_summary(analysis):
     table.add_column("Buy (min price)", justify="right")
     table.add_column("Sell (max price)", justify="right")
     table.add_column("Spread %", justify="right", style="bright_yellow")
-    for symbol, buy_ex, sell_ex, spread, min_p, max_p in rows:
-        table.add_row(
+    if fees:
+        table.add_column("Net Spread %", justify="right", style="bright_green")
+    for symbol, buy_ex, sell_ex, spread, net_spread, min_p, max_p in rows:
+        row = [
             symbol,
             f"{buy_ex} @ {min_p:.2f}",
             f"{sell_ex} @ {max_p:.2f}",
             f"{spread:>+6.2f}%"
-        )
+        ]
+        if fees:
+            row.append(f"{net_spread:>+6.2f}%")
+        table.add_row(*row)
     console.print(table)
     console.print()
 

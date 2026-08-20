@@ -2,6 +2,16 @@ import os
 import yaml
 from typing import Dict, Any
 
+def parse_fees(fees_str: str) -> Dict[str, float]:
+    if not fees_str:
+        return {}
+    result = {}
+    for part in fees_str.split(","):
+        if ":" in part:
+            exchange, fee = part.split(":", 1)
+            result[exchange.strip()] = float(fee.strip())
+    return result
+
 def load_yaml_config(path: str = "config.yaml") -> Dict[str, Any]:
     if not os.path.exists(path):
         return {}
@@ -27,11 +37,15 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "triangular": False,
         "triangular_min_profit": 0.0,
         "futures": False,
+        "fees": {},
     }
     if yaml_config:
         for key in config:
             if key in yaml_config:
-                config[key] = yaml_config[key]
+                if key == "fees" and isinstance(yaml_config[key], dict):
+                    config[key] = yaml_config[key]
+                else:
+                    config[key] = yaml_config[key]
     if cli_args.exchanges:
         config["exchanges"] = [ex.strip() for ex in cli_args.exchanges.split(",") if ex.strip()]
     elif os.getenv("EXCHANGES"):
@@ -110,4 +124,13 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["futures"] = True
     elif "futures" in yaml_config:
         config["futures"] = yaml_config["futures"]
+    fees_str = ""
+    if cli_args.fees:
+        fees_str = cli_args.fees
+    elif os.getenv("FEES"):
+        fees_str = os.getenv("FEES")
+    elif "fees" in yaml_config and isinstance(yaml_config["fees"], str):
+        fees_str = yaml_config["fees"]
+    if fees_str:
+        config["fees"] = parse_fees(fees_str)
     return config

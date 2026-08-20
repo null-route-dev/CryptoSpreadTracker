@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .routes import health, spreads, triangular, futures
+from .routes import health, spreads, triangular, futures, fees
 from .websocket import spreads as ws_spreads, arbitrage as ws_arbitrage, triangular as ws_triangular, futures as ws_futures
 
 app = FastAPI(title="CryptoSpreadTracker API")
@@ -12,3 +12,4 @@ app.include_router(ws_spreads)
 app.include_router(ws_arbitrage)
 app.include_router(ws_triangular)
 app.include_router(ws_futures)
+app.include_router(fees.router)

@@ -1,8 +1,11 @@
-from typing import Dict, List, Union, Any
+from typing import Dict, List, Union
 
-def discover_triangular_opportunities(prices_by_symbol: Dict[str, Dict[str, Union[float, Dict]]], min_profit: float = 0.0) -> List[Dict]:
+def discover_triangular_opportunities(prices_by_symbol: Dict[str, Dict[str, Union[float, Dict]]], min_profit: float = 0.0, fees: Dict[str, float] = None) -> List[Dict]:
+    if fees is None:
+        fees = {}
     opportunities = []
     for exchange, symbols_data in prices_by_symbol.items():
+        fee = fees.get(exchange, 0.0) / 100.0
         available_symbols = set(symbols_data.keys())
         for sym1 in available_symbols:
             if "/" not in sym1:
@@ -30,8 +33,11 @@ def discover_triangular_opportunities(prices_by_symbol: Dict[str, Dict[str, Unio
                     price3 = price3.get("mid")
                 if price1 is None or price2 is None or price3 is None:
                     continue
-                theoretical = price1 * price2
-                profit_pct = ((price3 / theoretical) - 1) * 100
+                p1_buy = price1 * (1 + fee)
+                p2_buy = price2 * (1 + fee)
+                p3_sell = price3 * (1 - fee)
+                theoretical = p1_buy * p2_buy
+                profit_pct = ((p3_sell / theoretical) - 1) * 100
                 if profit_pct < min_profit:
                     continue
                 opportunities.append({
