@@ -28,6 +28,8 @@ from .gateio import GateIoWebSocketFetcher, GateIoOrderBookFetcher, fetch_gateio
 from .huobi import HuobiWebSocketFetcher, fetch_huobi_symbols
 from .bitget import BitgetWebSocketFetcher, fetch_bitget_symbols
 from .mexc import MEXCWebSocketFetcher, fetch_mexc_symbols
+from .bitfinex import BitfinexWebSocketFetcher, fetch_bitfinex_symbols
+from .coinbase import CoinbaseWebSocketFetcher, fetch_coinbase_symbols
 
 TICKER_MAP = {
     "binance": BinanceWebSocketFetcher,
@@ -39,6 +41,8 @@ TICKER_MAP = {
     "huobi": HuobiWebSocketFetcher,
     "bitget": BitgetWebSocketFetcher,
     "mexc": MEXCWebSocketFetcher,
+    "bitfinex": BitfinexWebSocketFetcher,
+    "coinbase": CoinbaseWebSocketFetcher,
 }
 
 ORDERBOOK_MAP = {
