@@ -30,6 +30,9 @@ from .bitget import BitgetWebSocketFetcher, fetch_bitget_symbols
 from .mexc import MEXCWebSocketFetcher, fetch_mexc_symbols
 from .bitfinex import BitfinexWebSocketFetcher, fetch_bitfinex_symbols
 from .coinbase import CoinbaseWebSocketFetcher, fetch_coinbase_symbols
+from .bingx import BingXWebSocketFetcher, fetch_bingx_symbols
+from .phemex import PhemexWebSocketFetcher, fetch_phemex_symbols
+from .whitebit import WhiteBITWebSocketFetcher, fetch_whitebit_symbols
 
 TICKER_MAP = {
     "binance": BinanceWebSocketFetcher,
@@ -43,6 +46,9 @@ TICKER_MAP = {
     "mexc": MEXCWebSocketFetcher,
     "bitfinex": BitfinexWebSocketFetcher,
     "coinbase": CoinbaseWebSocketFetcher,
+    "bingx": BingXWebSocketFetcher,
+    "phemex": PhemexWebSocketFetcher,
+    "whitebit": WhiteBITWebSocketFetcher,
 }
 
 ORDERBOOK_MAP = {
