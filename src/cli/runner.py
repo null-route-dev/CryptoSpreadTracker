@@ -7,6 +7,8 @@ from src.config import get_config
 from src.fetchers.manager import PriceFetcherManager, discover_common_symbols, discover_common_futures_symbols
 from src.analyzers import analyze_spreads, discover_triangular_opportunities, SpreadStats
 from src.display import print_spreads, print_arbitrage_summary, print_triangular_summary, print_futures_summary
+from src.analyzers.aggregate import aggregate_orderbooks
+from src.display.tables import print_aggregated_orderbook
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,13 @@ async def run_once_with_manager(manager, config):
     elif config.get("futures", False):
         analysis = analyze_spreads(prices_by_symbol)
         print_futures_summary(analysis)
+    elif config.get("aggregate", False):
+        all_orderbooks = manager.get_all_orderbooks()
+        if all_orderbooks:
+            aggregated = aggregate_orderbooks(all_orderbooks)
+            print_aggregated_orderbook(aggregated, config.get("aggregate_depth", 10))
+        else:
+            print("No orderbook data available.")
     else:
         analysis = analyze_spreads(prices_by_symbol)
         stats = None

@@ -2,16 +2,6 @@ import os
 import yaml
 from typing import Dict, Any
 
-def parse_fees(fees_str: str) -> Dict[str, float]:
-    if not fees_str:
-        return {}
-    result = {}
-    for part in fees_str.split(","):
-        if ":" in part:
-            exchange, fee = part.split(":", 1)
-            result[exchange.strip()] = float(fee.strip())
-    return result
-
 def load_yaml_config(path: str = "config.yaml") -> Dict[str, Any]:
     if not os.path.exists(path):
         return {}
@@ -38,6 +28,10 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         "triangular_min_profit": 0.0,
         "futures": False,
         "fees": {},
+        "chart": False,
+        "chart_symbol": None,
+        "aggregate": False,
+        "aggregate_depth": 10,
     }
     if yaml_config:
         for key in config:
@@ -76,17 +70,23 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["log_level"] = os.getenv("LOG_LEVEL").upper()
     if os.getenv("LOG_FILE"):
         config["log_file"] = os.getenv("LOG_FILE")
-    if os.getenv("MODE"):
+    if cli_args.mode:
+        config["mode"] = cli_args.mode
+    elif os.getenv("MODE"):
         config["mode"] = os.getenv("MODE").lower()
-    if "mode" in yaml_config:
+    elif "mode" in yaml_config:
         config["mode"] = yaml_config["mode"]
-    if os.getenv("ORDERBOOK_DEPTH"):
+    if cli_args.orderbook_depth is not None:
+        config["orderbook_depth"] = cli_args.orderbook_depth
+    elif os.getenv("ORDERBOOK_DEPTH"):
         config["orderbook_depth"] = int(os.getenv("ORDERBOOK_DEPTH"))
-    if "orderbook_depth" in yaml_config:
+    elif "orderbook_depth" in yaml_config:
         config["orderbook_depth"] = yaml_config["orderbook_depth"]
-    if os.getenv("ORDERBOOK_AMOUNT"):
+    if cli_args.orderbook_amount is not None:
+        config["orderbook_amount"] = cli_args.orderbook_amount
+    elif os.getenv("ORDERBOOK_AMOUNT"):
         config["orderbook_amount"] = float(os.getenv("ORDERBOOK_AMOUNT"))
-    if "orderbook_amount" in yaml_config:
+    elif "orderbook_amount" in yaml_config:
         config["orderbook_amount"] = yaml_config["orderbook_amount"]
     if cli_args.stats_window is not None:
         config["stats_window"] = cli_args.stats_window
@@ -124,6 +124,30 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
         config["futures"] = True
     elif "futures" in yaml_config:
         config["futures"] = yaml_config["futures"]
+    if cli_args.chart:
+        config["chart"] = True
+    elif os.getenv("CHART", "").lower() == "true":
+        config["chart"] = True
+    elif "chart" in yaml_config:
+        config["chart"] = yaml_config["chart"]
+    if cli_args.chart_symbol:
+        config["chart_symbol"] = cli_args.chart_symbol
+    elif os.getenv("CHART_SYMBOL"):
+        config["chart_symbol"] = os.getenv("CHART_SYMBOL")
+    elif "chart_symbol" in yaml_config:
+        config["chart_symbol"] = yaml_config["chart_symbol"]
+    if cli_args.aggregate:
+        config["aggregate"] = True
+    elif os.getenv("AGGREGATE", "").lower() == "true":
+        config["aggregate"] = True
+    elif "aggregate" in yaml_config:
+        config["aggregate"] = yaml_config["aggregate"]
+    if cli_args.aggregate_depth is not None:
+        config["aggregate_depth"] = cli_args.aggregate_depth
+    elif os.getenv("AGGREGATE_DEPTH"):
+        config["aggregate_depth"] = int(os.getenv("AGGREGATE_DEPTH"))
+    elif "aggregate_depth" in yaml_config:
+        config["aggregate_depth"] = yaml_config["aggregate_depth"]
     fees_str = ""
     if cli_args.fees:
         fees_str = cli_args.fees
@@ -132,5 +156,9 @@ def merge_config(cli_args: Any) -> Dict[str, Any]:
     elif "fees" in yaml_config and isinstance(yaml_config["fees"], str):
         fees_str = yaml_config["fees"]
     if fees_str:
-        config["fees"] = parse_fees(fees_str)
+        config["fees"] = {}
+        for part in fees_str.split(","):
+            if ":" in part:
+                ex, fee = part.split(":", 1)
+                config["fees"][ex.strip()] = float(fee.strip())
     return config

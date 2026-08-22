@@ -1,3 +1,4 @@
+from typing import Dict
 from rich.console import Console
 from rich.table import Table
 
@@ -170,3 +171,31 @@ def print_futures_summary(analysis):
             )
     console.print(table)
     console.print()
+
+def print_aggregated_orderbook(aggregated: Dict[str, Dict], top: int = 10):
+    if not aggregated:
+        console.print("❌ No orderbook data.")
+        return
+    for symbol, data in aggregated.items():
+        bids = data.get("bids", [])[:top]
+        asks = data.get("asks", [])[:top]
+        table = Table(title=f"📊 Synthetic Orderbook for {symbol}", show_header=True, header_style="bold magenta")
+        table.add_column("Type", style="cyan", no_wrap=True)
+        table.add_column("Price (USDT)", justify="right", style="green")
+        table.add_column("Volume", justify="right", style="yellow")
+        table.add_column("Sources", style="blue")
+        for bid in bids:
+            table.add_row("Bid", f"{bid['price']:.2f}", f"{bid['volume']:.4f}", ", ".join(bid['sources']))
+        for ask in asks:
+            table.add_row("Ask", f"{ask['price']:.2f}", f"{ask['volume']:.4f}", ", ".join(ask['sources']))
+        if bids and asks:
+            best_bid = bids[0]
+            best_ask = asks[0]
+            spread = ((best_ask['price'] - best_bid['price']) / best_bid['price']) * 100
+            table.add_section()
+            table.add_row("", "", "", "")
+            table.add_row("Best bid:", f"{best_bid['price']:.2f}", f"{best_bid['volume']:.4f}", ", ".join(best_bid['sources']))
+            table.add_row("Best ask:", f"{best_ask['price']:.2f}", f"{best_ask['volume']:.4f}", ", ".join(best_ask['sources']))
+            table.add_row("Spread:", f"{spread:.4f}%", "", "")
+        console.print(table)
+        console.print()

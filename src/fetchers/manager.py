@@ -208,6 +208,15 @@ class PriceFetcherManager:
     def get_current_symbols(self) -> List[str]:
         return list(self.symbols)
 
+    def get_all_orderbooks(self) -> Dict[str, Dict[str, Dict[str, List[Tuple[float, float]]]]]:
+        result = {}
+        for ex_id, client in self.clients.items():
+            if self.mode == "orderbook" and hasattr(client, "get_current_orderbooks"):
+                books = client.get_current_orderbooks()
+                for sym, book in books.items():
+                    result.setdefault(sym, {})[ex_id] = book
+        return result
+
 async def discover_common_symbols(exchange_ids: List[str], min_exchanges: int = 2) -> List[str]:
     symbol_sets = {}
     for ex_id in exchange_ids:
